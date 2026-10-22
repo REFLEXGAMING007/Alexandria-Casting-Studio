@@ -1289,6 +1289,9 @@ body.focus-mode #focusExit{display:flex}
             <option value="status">Color by status</option>
             <option value="priority">Color by priority</option>
           </select>
+          <button class="btn ghost" data-action="map-zoom-in" title="Zoom in">+ Zoom</button>
+          <button class="btn ghost" data-action="map-zoom-out" title="Zoom out">- Zoom</button>
+          <button class="btn ghost" data-action="map-zoom-reset" title="Reset zoom">Reset zoom</button>
           <button class="btn ghost" data-action="map-random" title="Open a random voice from the map">✦ Random</button>
           <button class="btn ghost" data-action="set-workspace" data-workspace="insights">◫ Insights</button>
         </div>
@@ -2153,6 +2156,8 @@ let loop = false;
 let playContext = null;
 let loadMoreObserver = null;
 let smartViewDragId = null;
+let mapZoom = 1;
+let mapPan = { x: 0, y: 0 };
 let modalKind = null;
 let paletteItems = [];
 let paletteIndex = 0;
@@ -3874,6 +3879,18 @@ function mapColor(v) {
   if (state.mapMode === 'status') return STATUS_COLORS[statusOf(v.id)];
   if (state.mapMode === 'priority') return PRIORITY_COLOR[priorityOf(v.id)];
   return sourceColor(v.manifestTag);
+}
+function updateMapViewBox() {
+  const svg = $('voiceMap');
+  if (!svg) return;
+  const w = 1000 / mapZoom;
+  const h = 620 / mapZoom;
+  svg.setAttribute('viewBox', `${mapPan.x} ${mapPan.y} ${w} ${h}`);
+}
+function resetMapZoom() {
+  mapZoom = 1;
+  mapPan = { x: 0, y: 0 };
+  updateMapViewBox();
 }
 function renderMap() {
   const svg = $('voiceMap');
@@ -5598,6 +5615,17 @@ function handleAction(el) {
     case 'board-sort-priority':
       setSort('priority');
       break;
+    case 'map-zoom-in':
+      mapZoom = clamp(mapZoom * 1.25, 0.5, 10);
+      updateMapViewBox();
+      break;
+    case 'map-zoom-out':
+      mapZoom = clamp(mapZoom / 1.25, 0.5, 10);
+      updateMapViewBox();
+      break;
+    case 'map-zoom-reset':
+      resetMapZoom();
+      break;
     case 'map-random': {
       const pool = state.rows;
       if (!pool.length) { showToast('No voices in view to pick from.', 'warn'); break; }
@@ -5922,6 +5950,41 @@ function bindEvents() {
     smartViews.addEventListener('dragend', () => {
       smartViewDragId = null;
       for (const row of smartViews.querySelectorAll('.view-btn')) row.classList.remove('dragging', 'drop-before', 'drop-after');
+    });
+  }
+  const voiceMap = $('voiceMap');
+  if (voiceMap) {
+    voiceMap.addEventListener('wheel', e => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      mapZoom = clamp(mapZoom * factor, 0.5, 10);
+      updateMapViewBox();
+    }, { passive: false });
+    let mapDragging = false, mapStartX = 0, mapStartY = 0, mapStartPanX = 0, mapStartPanY = 0;
+    voiceMap.addEventListener('pointerdown', e => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+      const isDot = tag === 'circle';
+      if (isDot) return;
+      mapDragging = true;
+      try { voiceMap.setPointerCapture(e.pointerId); } catch (err) {}
+      mapStartX = e.clientX;
+      mapStartY = e.clientY;
+      mapStartPanX = mapPan.x;
+      mapStartPanY = mapPan.y;
+    });
+    voiceMap.addEventListener('pointermove', e => {
+      if (!mapDragging) return;
+      const rect = voiceMap.getBoundingClientRect();
+      const scaleX = (1000 / mapZoom) / (rect.width || 1);
+      const scaleY = (620 / mapZoom) / (rect.height || 1);
+      mapPan.x = mapStartPanX + (mapStartX - e.clientX) * scaleX;
+      mapPan.y = mapStartPanY + (mapStartY - e.clientY) * scaleY;
+      updateMapViewBox();
+    });
+    voiceMap.addEventListener('pointerup', () => { mapDragging = false; });
+    voiceMap.addEventListener('pointercancel', () => { mapDragging = false; });
+    voiceMap.addEventListener('dblclick', e => {
+      if (e.target === voiceMap) resetMapZoom();
     });
   }
   const search = $('search');
