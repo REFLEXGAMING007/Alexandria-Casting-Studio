@@ -1219,7 +1219,7 @@ body.focus-mode #focusExit{display:flex}
             <option value="priority">Priority</option>
             <option value="newest">Newest first</option>
           </select>
-          <button class="btn ghost" data-action="play-results" title="Preview the filtered results continuously">▶ Play results</button>
+          <button class="btn ghost" data-action="play-results" id="playResultsBtn" title="Preview the filtered results continuously">▶ Play results</button>
           <button class="btn ghost" data-action="random" title="Jump to a random voice">✦ Random</button>
           <button class="btn ghost" data-action="toggle-select" id="selectBtn" title="Select multiple voices">☑ Select</button>
           <button class="btn ghost" data-action="toggle-blind" title="Blind audition">◐ Blind</button>
@@ -2169,6 +2169,7 @@ let loadMoreObserver = null;
 let smartViewDragId = null;
 let collectionDragId = null;
 let peekVoiceId = null;
+let playingResults = false;
 let mapZoom = 1;
 let mapPan = { x: 0, y: 0 };
 let modalKind = null;
@@ -3182,6 +3183,7 @@ function playVoice(id, opts = {}) {
   if (opts.context) playContext = opts.context;
   else if (state.continuous) setPlayContext(state.rows.map(row => row.id), id, 'continuous');
   else setPlayContext([id], id, 'single');
+  playingResults = !!(opts.context && opts.context.mode === 'continuous');
   rememberRecent(id);
   audio.play().catch(() => { showToast('Could not play this preview. Try serving the folder over HTTP.', 'error'); });
   isPlaying = true;
@@ -3200,6 +3202,7 @@ function stopPlayback() {
   currentId = null;
   isPlaying = false;
   playContext = null;
+  playingResults = false;
   updatePlayerUI();
   syncPlayingUI();
   renderDock();
@@ -3271,6 +3274,7 @@ function handleTrackEnd() {
   }
   isPlaying = false;
   audio.pause();
+  playingResults = false;
   updatePlayerUI();
   syncPlayingUI();
 }
@@ -3308,6 +3312,7 @@ function updatePlayerUI() {
     if ($('reviewTime')) $('reviewTime').textContent = `${formatTime(current)} / ${formatTime(duration)}`;
     if (reviewVoice()?.id === currentId) drawReviewWave();
   }
+  updatePlayResultsButton();
   if (modalKind === 'peek' && $('peekWave')) drawPeekWave();
 }
 function formatTime(seconds) {
@@ -3321,10 +3326,29 @@ function playQueue() {
   playVoice(ids[0], { context: ctx });
 }
 function playResults() {
+  if (playingResults) {
+    playingResults = false;
+    stopPlayback();
+    updatePlayResultsButton();
+    return;
+  }
   if (!state.rows.length) { showToast('No results to play.', 'warn'); return; }
   const ids = state.rows.map(v => v.id);
   const ctx = { ids, index: 0, mode: 'continuous' };
+  playingResults = true;
   playVoice(ids[0], { context: ctx });
+  updatePlayResultsButton();
+}
+function updatePlayResultsButton() {
+  const btn = $('playResultsBtn');
+  if (!btn) return;
+  if (playingResults && isPlaying) {
+    btn.textContent = '■ Stop playing';
+    btn.title = 'Stop playing results';
+  } else {
+    btn.textContent = '▶ Play results';
+    btn.title = 'Preview the filtered results continuously';
+  }
 }
 audio.addEventListener('timeupdate', updatePlayerUI);
 audio.addEventListener('durationchange', updatePlayerUI);
