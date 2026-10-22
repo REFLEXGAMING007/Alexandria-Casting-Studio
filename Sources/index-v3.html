@@ -189,6 +189,9 @@ a{color:inherit}
 .side-section .side-body{padding-left:0;padding-right:0}
 .facet-block{border-top:1px solid var(--line);padding:8px 2px 4px}
 .facet-block:first-child{border-top:0}
+.facet-block.dragging{opacity:.35}
+.facet-block.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
+.facet-block.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
 .facet-head{display:flex;align-items:center;gap:6px;width:100%;padding:3px 2px;border:0;background:transparent;text-align:left}
 .facet-head .f-name{font-size:9px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
 .facet-head .f-count{font-size:8px;color:var(--dim);margin-left:auto}
@@ -2121,6 +2124,7 @@ const state = {
   savedViews: [],
   smartViewOrder: [],
   sidebarSectionOrder: [],
+  facetOrder: [],
   activity: [],
   recent: [],
   recentSearches: [],
@@ -2297,6 +2301,7 @@ function serialize() {
     savedViews: state.savedViews,
     smartViewOrder: [...state.smartViewOrder],
     sidebarSectionOrder: [...state.sidebarSectionOrder],
+    facetOrder: [...state.facetOrder],
     prefs: {
       view: state.view, sort: state.sort, density: state.density,
       hideDesc: state.hideDesc, hideSample: state.hideSample, hideTags: state.hideTags,
@@ -2353,6 +2358,7 @@ function hydrate() {
     if (Array.isArray(data.savedViews)) state.savedViews = data.savedViews.filter(v => v && v.name && v.filters).slice(0, 40);
     if (Array.isArray(data.smartViewOrder)) state.smartViewOrder = [...new Set(data.smartViewOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
 if (Array.isArray(data.sidebarSectionOrder)) state.sidebarSectionOrder = [...new Set(data.sidebarSectionOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
+if (Array.isArray(data.facetOrder)) state.facetOrder = [...new Set(data.facetOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
     const p = data.prefs || {};
     if (['cards', 'table'].includes(p.view)) state.view = p.view;
     if (typeof p.sort === 'string') state.sort = p.sort;
@@ -2615,6 +2621,42 @@ const BUILTIN_VIEWS = [
 ];
 
 // ---------- rendering: sidebar ----------
+function clearFacetDropMarks() {
+  for (const row of document.querySelectorAll('#facets .facet-block.drop-before, #facets .facet-block.drop-after')) row.classList.remove('drop-before', 'drop-after');
+}
+function applyFacetOrder() {
+  const box = $('facets');
+  if (!box) return;
+  const blocks = [...box.querySelectorAll(':scope > .facet-block')];
+  if (!blocks.length) return;
+  const byKey = new Map(blocks.map(b => [b.id.replace('facet-', ''), b]));
+  const ordered = [];
+  for (const key of state.facetOrder) {
+    const b = byKey.get(key);
+    if (b) { ordered.push(b); byKey.delete(key); }
+  }
+  for (const b of blocks) {
+    if (byKey.has(b.id.replace('facet-', ''))) { ordered.push(b); byKey.delete(b.id.replace('facet-', '')); }
+  }
+  for (const b of ordered) box.appendChild(b);
+}
+function reorderFacet(sourceKey, targetKey, after) {
+  if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+  const all = [...document.querySelectorAll('#facets > .facet-block')].map(b => b.id.replace('facet-', ''));
+  const current = state.facetOrder.length ? [...state.facetOrder] : all;
+  const ids = [...new Set(current)];
+  for (const id of all) if (!ids.includes(id)) ids.push(id);
+  const from = ids.indexOf(sourceKey);
+  if (from < 0) return;
+  const [moved] = ids.splice(from, 1);
+  let to = ids.indexOf(targetKey);
+  if (to < 0) return;
+  if (after) to += 1;
+  ids.splice(to, 0, moved);
+  state.facetOrder = ids;
+  persist();
+  applyFacetOrder();
+}
 function renderFacets() {
   for (const facet of FACETS) {
     const box = $('facet-' + facet.key);
@@ -2637,7 +2679,7 @@ function renderFacets() {
     const shown = values.length;
     const more = facet.limit && !state.facetExpanded[facet.key] && shown > facet.limit;
     const html = `
-      <div class="facet-head" data-action="toggle-collapse" data-collapse="${facet.key}">
+      <div class="facet-head" draggable="true" data-action="toggle-collapse" data-collapse="${facet.key}">
         <span class="f-name">${esc(facet.label)}</span>
         <span class="f-count">${active.size ? active.size + ' active' : ''}</span>
         <span class="chev">${collapsed ? '▸' : '▾'}</span>
@@ -2652,6 +2694,7 @@ function renderFacets() {
     // more flag not needed; suppress unused lint in one-file build
     void more;
   }
+  applyFacetOrder();
   const status = $('facet-status');
   if (status) status.style.display = '';
 }
@@ -6178,6 +6221,47 @@ function bindEvents() {
     sidebar.addEventListener('dragend', () => {
       sidebarDragId = null;
       for (const row of sidebar.querySelectorAll('.side-card')) row.classList.remove('dragging', 'drop-before', 'drop-after');
+    });
+  }
+  const facetsPanel = $('facets');
+  if (facetsPanel) {
+    let facetDragKey = null;
+    facetsPanel.addEventListener('dragstart', e => {
+      const block = e.target instanceof Element ? e.target.closest('.facet-block') : null;
+      const head = e.target instanceof Element ? e.target.closest('.facet-head') : null;
+      if (!block || !head) return;
+      if (e.target.closest('button')) return;
+      facetDragKey = block.id.replace('facet-', '');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', facetDragKey || '');
+      }
+      block.classList.add('dragging');
+    });
+    facetsPanel.addEventListener('dragover', e => {
+      const block = e.target instanceof Element ? e.target.closest('.facet-block') : null;
+      if (!block || !facetDragKey || block.id.replace('facet-', '') === facetDragKey) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const after = e.clientY > block.getBoundingClientRect().top + block.offsetHeight / 2;
+      for (const item of facetsPanel.querySelectorAll('.facet-block')) {
+        item.classList.toggle('drop-before', item === block && !after);
+        item.classList.toggle('drop-after', item === block && after);
+      }
+    });
+    facetsPanel.addEventListener('drop', e => {
+      const block = e.target instanceof Element ? e.target.closest('.facet-block') : null;
+      if (!block) return;
+      e.preventDefault();
+      const sourceKey = facetDragKey || e.dataTransfer?.getData('text/plain') || '';
+      const after = block.classList.contains('drop-after');
+      facetDragKey = null;
+      clearFacetDropMarks();
+      reorderFacet(sourceKey, block.id.replace('facet-', ''), after);
+    });
+    facetsPanel.addEventListener('dragend', () => {
+      facetDragKey = null;
+      for (const row of facetsPanel.querySelectorAll('.facet-block')) row.classList.remove('dragging', 'drop-before', 'drop-after');
     });
   }
   const collectionsPanel = $('collectionsPanel');
