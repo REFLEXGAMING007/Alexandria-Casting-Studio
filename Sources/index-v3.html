@@ -811,9 +811,12 @@ body.blind .compare-chip b,body.blind .recent-voice .r-name,body.blind .recent-v
 .main-footer .footer-link:hover{color:var(--accent)}
 body.focus-mode .topbar,body.focus-mode .sidebar,body.focus-mode .hero,body.focus-mode .insight-strip,body.focus-mode .main-footer,body.focus-mode .ws-nav,body.focus-mode .main-footer,body.focus-mode .blind-banner{display:none!important}
 body.focus-mode .layout{display:block;max-width:1800px;padding:11px}
-body.focus-mode .main{padding-bottom:160px}
+body.focus-mode .main{padding-bottom:90px}
 body.focus-mode .toolbar-row{top:10px}
+body.focus-mode #workspace-map{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
+body.focus-mode #workspace-map .map-shell{flex:1 1 auto;min-height:420px}
 body.focus-mode #voiceMap{height:calc(100vh - 210px);min-height:420px}
+@media(min-width:1024px){body.focus-mode #voiceMap{height:calc(100vh - 120px)}}
 body.focus-mode #focusExit{display:flex}
 #focusExit{display:none;position:fixed;top:12px;right:12px;z-index:70}
 body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
