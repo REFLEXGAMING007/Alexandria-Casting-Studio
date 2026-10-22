@@ -1288,6 +1288,7 @@ body.focus-mode #focusExit{display:flex}
             <option value="gender">Color by gender</option>
             <option value="status">Color by status</option>
             <option value="priority">Color by priority</option>
+            <option value="tag">Color by custom tags</option>
           </select>
           <button class="btn ghost" data-action="map-zoom-in" title="Zoom in">+ Zoom</button>
           <button class="btn ghost" data-action="map-zoom-out" title="Zoom out">- Zoom</button>
@@ -2193,6 +2194,14 @@ function anyMark(id) { return COLORS.some(c => hasMark('stars', c, id) || hasMar
 function markCountFor(kind, color) { return state.marks[kind]?.[color]?.size || 0; }
 function markCount(id) { return COLORS.reduce((n, c) => n + (hasMark('stars', c, id) ? 1 : 0) + (hasMark('circles', c, id) ? 1 : 0), 0); }
 function sourceColor(tag) { return SOURCE_COLORS[tag] || SOURCE_COLORS.unknown; }
+const customTagColorMap = new Map();
+function colorForCustomTag(tag) {
+  if (customTagColorMap.has(tag)) return customTagColorMap.get(tag);
+  const used = new Set(customTagColorMap.values());
+  const color = MANIFEST_COLOR_PALETTE.find(c => !used.has(c)) || MANIFEST_COLOR_PALETTE[customTagColorMap.size % MANIFEST_COLOR_PALETTE.length];
+  customTagColorMap.set(tag, color);
+  return color;
+}
 function facetSet(key) {
   if (key === 'manifest') return state.manifests;
   if (key === 'gender') return state.genders;
@@ -2325,7 +2334,7 @@ function hydrate() {
     if (typeof p.continuousLength === 'string') state.continuousLength = p.continuousLength;
     if (typeof p.continuousCustom === 'string') state.continuousCustom = p.continuousCustom;
     if (['library', 'board', 'map', 'insights'].includes(p.workspace)) state.workspace = p.workspace;
-    if (['manifest', 'gender', 'status', 'priority'].includes(p.mapMode)) state.mapMode = p.mapMode;
+    if (['manifest', 'gender', 'status', 'priority', 'tag'].includes(p.mapMode)) state.mapMode = p.mapMode;
     state.blind = !!p.blind;
     if (p.settings && typeof p.settings === 'object') {
       const s = p.settings;
@@ -3878,6 +3887,11 @@ function mapColor(v) {
   }
   if (state.mapMode === 'status') return STATUS_COLORS[statusOf(v.id)];
   if (state.mapMode === 'priority') return PRIORITY_COLOR[priorityOf(v.id)];
+  if (state.mapMode === 'tag') {
+    const tags = tagsOf(v.id);
+    if (!tags.length) return '#7c8ba1';
+    return colorForCustomTag(tags[0]);
+  }
   return sourceColor(v.manifestTag);
 }
 function updateMapViewBox() {
@@ -3935,13 +3949,14 @@ function renderMap() {
     <text x="506" y="594" class="map-label">Formal</text>
     ${points.map(p => `<circle class="map-dot" data-id="${esc(p.v.id)}" data-action="peek" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(1)}" fill="${p.color}" fill-opacity="${priorityOf(p.v.id) === 'high' ? '0.92' : '0.58'}" stroke="${p.color}" stroke-opacity=".4">${state.blind ? '' : `<title>${esc(p.v.name)} · ${esc(p.v.manifestTag || '')} · ${esc((p.v.tone || []).slice(0, 4).join(', ') || 'no tone tags')}</title>`}</circle>`).join('')}
   `;
-  const legend = state.mapMode === 'manifest'
-    ? MANIFEST_ORDER.map(m => ({ label: m, color: SOURCE_COLORS[m] }))
-    : state.mapMode === 'gender'
-      ? GENDER_ORDER.map(g => ({ label: g, color: ({ Male: '#60a5fa', Female: '#f472b6', 'Ambiguous / mixed': '#c084fc', 'Not specified': '#94a3b8' })[g] }))
-      : state.mapMode === 'status'
-        ? STATUS_ORDER.map(s => ({ label: STATUS[s].label, color: STATUS_COLORS[s] }))
-        : [...PRIORITIES, 'none'].map(p => ({ label: PRIORITY_LABEL[p], color: PRIORITY_COLOR[p] }));
+  let legend = [];
+  if (state.mapMode === 'manifest') legend = MANIFEST_ORDER.map(m => ({ label: m, color: SOURCE_COLORS[m] }));
+  else if (state.mapMode === 'gender') legend = GENDER_ORDER.map(g => ({ label: g, color: ({ Male: '#60a5fa', Female: '#f472b6', 'Ambiguous / mixed': '#c084fc', 'Not specified': '#94a3b8' })[g] }));
+  else if (state.mapMode === 'status') legend = STATUS_ORDER.map(s => ({ label: STATUS[s].label, color: STATUS_COLORS[s] }));
+  else if (state.mapMode === 'tag') {
+    const tags = [...new Set(state.rows.flatMap(v => tagsOf(v.id)))].sort();
+    legend = tags.length ? tags.map(t => ({ label: t, color: colorForCustomTag(t) })) : [{ label: 'No custom tags', color: '#7c8ba1' }];
+  } else legend = [...PRIORITIES, 'none'].map(p => ({ label: PRIORITY_LABEL[p], color: PRIORITY_COLOR[p] }));
   if ($('mapLegend')) $('mapLegend').innerHTML = legend.map(x => `<span><i style="--c:${x.color}"></i>${esc(x.label)}</span>`).join('');
   if ($('mapNote')) $('mapNote').textContent = `${fmt(rows.length)} voices plotted. Dot size reflects marks and high priority; position is a deterministic projection of tone and texture vocabulary. Click any dot for a quick peek.`;
 }
