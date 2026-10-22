@@ -1044,7 +1044,7 @@ body.focus-mode #focusExit{display:flex}
 
 <div class="layout">
   <aside class="sidebar" id="sidebar">
-    <div class="side-head">
+    <div class="side-head" draggable="true">
       <div class="side-title">Library controls</div>
       <button class="icon-btn small mobile-only" data-action="close-sidebar" title="Close filters">×</button>
     </div>
@@ -1068,8 +1068,8 @@ body.focus-mode #focusExit{display:flex}
       <div class="recent-searches" id="recentSearches"></div>
     </div>
 
-    <section class="side-card" draggable="true" data-side-section="smart-views">
-      <div class="side-head">
+    <section class="side-card" data-side-section="smart-views">
+      <div class="side-head" draggable="true">
         <div class="side-title">Smart views</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <button class="btn ghost" data-action="save-view" title="Save the current filters as a view">+ Save</button>
@@ -1077,8 +1077,8 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-body"><div class="view-list" id="smartViews"></div></div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="collections">
-      <div class="side-head">
+    <section class="side-card" data-side-section="collections">
+      <div class="side-head" draggable="true">
         <div class="side-title">Collections</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <button class="btn ghost" data-action="new-collection" title="Create a collection">+ New</button>
@@ -1086,8 +1086,8 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-body"><div class="collection-list" id="collectionsPanel"></div></div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="recent">
-      <div class="side-head">
+    <section class="side-card" data-side-section="recent">
+      <div class="side-head" draggable="true">
         <div class="side-title">Recently auditioned</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <button class="btn ghost" data-action="clear-recent" title="Clear recently auditioned voices">Clear</button>
@@ -1095,8 +1095,8 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-body"><div class="activity-list" id="recentVoices"></div></div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="filters">
-      <div class="side-head">
+    <section class="side-card" data-side-section="filters">
+      <div class="side-head" draggable="true">
         <div class="side-title">Filters</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <button class="btn ghost" data-action="clear-all" title="Clear filters">Reset</button>
@@ -1114,8 +1114,8 @@ body.focus-mode #focusExit{display:flex}
       </div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="marks">
-      <div class="side-head">
+    <section class="side-card" data-side-section="marks">
+      <div class="side-head" draggable="true">
         <div class="side-title">Stars &amp; circles</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <button class="btn ghost" data-action="open-downloads" title="Download marked audio">↓</button>
@@ -1123,16 +1123,16 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-body" id="marksPanel"></div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="review-progress">
-      <div class="side-head"><div class="side-title">Review progress</div><span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span><span class="pill accent" id="reviewPill">0%</span></div>
+    <section class="side-card" data-side-section="review-progress">
+      <div class="side-head" draggable="true"><div class="side-title">Review progress</div><span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span><span class="pill accent" id="reviewPill">0%</span></div>
       <div class="side-body">
         <div class="bar"><i id="reviewBar" style="width:0%"></i></div>
         <div class="review-text" id="reviewText">No voices reviewed yet.</div>
       </div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="data-health">
-      <div class="side-head">
+    <section class="side-card" data-side-section="data-health">
+      <div class="side-head" draggable="true">
         <div class="side-title">Data health</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <span class="pill" id="healthPill">—</span>
@@ -1140,8 +1140,8 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-body" id="dataHealth"></div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="activity">
-      <div class="side-head">
+    <section class="side-card" data-side-section="activity">
+      <div class="side-head" draggable="true">
         <div class="side-title">Studio activity</div>
         <span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <button class="btn ghost" data-action="clear-activity" title="Clear activity">Clear</button>
@@ -1149,8 +1149,8 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-body"><div class="activity-list" id="activityPanel"></div></div>
     </section>
 
-    <section class="side-card" draggable="true" data-side-section="display">
-      <div class="side-head"><div class="side-title">Display</div><span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span></div>
+    <section class="side-card" data-side-section="display">
+      <div class="side-head" draggable="true"><div class="side-title">Display</div><span class="side-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span></div>
       <div class="side-body">
         <div class="range-row"><span>Density</span><input id="density" type="range" min="1" max="5" step="1" value="3" aria-label="Card density"><output id="densityValue">3</output></div>
         <div class="display-grid">
@@ -6142,7 +6142,7 @@ function bindEvents() {
   if (sidebar) {
     let sidebarDragId = null;
     sidebar.addEventListener('dragstart', e => {
-      const row = e.target instanceof Element ? e.target.closest('.side-card[draggable="true"]') : null;
+      const row = e.target instanceof Element ? e.target.closest('.side-card') : null;
       if (!row) return;
       if (!(e.target instanceof Element) || !e.target.closest('.side-head')) return;
       if (e.target.closest('button, input, select, textarea, a')) return;
@@ -6154,7 +6154,7 @@ function bindEvents() {
       row.classList.add('dragging');
     });
     sidebar.addEventListener('dragover', e => {
-      const row = e.target instanceof Element ? e.target.closest('.side-card[draggable="true"]') : null;
+      const row = e.target instanceof Element ? e.target.closest('.side-card') : null;
       if (!row || !sidebarDragId || row.dataset.sideSection === sidebarDragId) return;
       // only allow when dragging via grip; sidebarDragId set
       e.preventDefault();
@@ -6166,7 +6166,7 @@ function bindEvents() {
       }
     });
     sidebar.addEventListener('drop', e => {
-      const row = e.target instanceof Element ? e.target.closest('.side-card[draggable="true"]') : null;
+      const row = e.target instanceof Element ? e.target.closest('.side-card') : null;
       if (!row) return;
       e.preventDefault();
       const sourceId = sidebarDragId || e.dataTransfer?.getData('text/plain') || '';
