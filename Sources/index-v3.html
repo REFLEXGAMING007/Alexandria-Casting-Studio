@@ -3485,7 +3485,6 @@ function toggleBlind() {
 function toggleFocus() {
   state.focus = !state.focus;
   document.body.classList.toggle('focus-mode', state.focus);
-  if (state.focus && state.workspace !== 'library') setWorkspace('library');
   showToast(state.focus ? 'Focus mode — press f or Exit focus to return.' : 'Focus mode off.', 'info');
 }
 function setWorkspace(ws) {
