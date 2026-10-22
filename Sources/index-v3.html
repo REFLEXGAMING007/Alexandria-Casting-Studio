@@ -490,10 +490,21 @@ a{color:inherit}
 .queue-item .q-meta{font-size:8px;color:var(--dim);white-space:nowrap}
 .similar-list{display:flex;flex-direction:column;gap:5px}
 .similar-item{display:flex;align-items:center;gap:7px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(148,163,184,.03)}
+.similar-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.similar-head{display:flex;align-items:center;gap:7px;min-width:0}
+.similar-head .s-name{flex:1}
 .similar-item .s-name{font-size:11px;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .similar-item .s-meta{font-size:8px;color:var(--dim);white-space:nowrap}
 .similar-item .s-score{margin-left:auto;font:8px ui-monospace,Consolas,monospace;color:var(--accent);white-space:nowrap}
+.similar-score{font:8px ui-monospace,Consolas,monospace;color:var(--accent);white-space:nowrap;padding:2px 5px;border-radius:99px;background:rgba(94,234,212,.08)}
 .similar-tags{display:flex;gap:2px;flex-wrap:wrap}
+.similar-reason{font-size:8.5px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere}
+.similar-bar{height:3px;border-radius:99px;background:rgba(148,163,184,.13);overflow:hidden;margin-top:1px}
+.similar-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),var(--accent-2));opacity:.88}
+.similar-actions{display:flex;align-items:center;gap:3px;flex:0 0 auto}
+.similar-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:9px;color:var(--dim)}
+.similar-foot .btn{padding:5px 8px;font-size:9px}
+.similar-empty{padding:18px 10px;text-align:center;border:1px dashed var(--line);border-radius:9px;color:var(--dim);font-size:10px}
 
 /* ---------- command palette ---------- */
 .palette-overlay{position:fixed;inset:0;z-index:120;display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;background:rgba(2,6,12,.64);backdrop-filter:blur(9px)}
@@ -4360,6 +4371,9 @@ function saveNote(id) {
   showToast(value ? 'Note saved.' : 'Note removed.', 'success');
 }
 // ---------- similar ----------
+const SIMILAR_STEPS = [30, 60, 100, 200];
+let similarState = { id: null, limit: 30 };
+
 function similarity(a, b) {
   let score = 0;
   const at = new Set(a.tone || []), bt = new Set(b.tone || []);
@@ -4371,16 +4385,61 @@ function similarity(a, b) {
   if (a.manifestTag === b.manifestTag) score += 1;
   return score;
 }
-function openSimilar(id) {
+
+function similarReasons(a, b) {
+  const shared = [];
+  if (a.manifestTag && a.manifestTag === b.manifestTag) shared.push('same novel');
+  if (a.genderClass && a.genderClass === b.genderClass) shared.push('same gender');
+  const ages = (a.age || []).filter(x => (b.age || []).includes(x));
+  if (ages.length) shared.push(`same age (${ages[0]})`);
+  const tones = (a.tone || []).filter(x => (b.tone || []).includes(x));
+  if (tones.length) shared.push(`${tones.length > 1 ? 'tones' : 'tone'}: ${tones.slice(0, 3).join(' + ')}`);
+  const textures = (a.texture || []).filter(x => (b.texture || []).includes(x));
+  if (textures.length) shared.push(`${textures.length > 1 ? 'textures' : 'texture'}: ${textures.slice(0, 2).join(' + ')}`);
+  return shared.join(' · ');
+}
+
+function similarFooter(id, visible, total) {
+  if (!total) return '';
+  if (visible >= total) return `<div class="similar-foot"><span>Showing all ${fmt(total)} matches</span></div>`;
+  const nextStep = SIMILAR_STEPS.find(n => n > visible) ?? Infinity;
+  const next = Math.min(total, nextStep);
+  const all = next >= total;
+  return `<div class="similar-foot"><span>${fmt(visible)} of ${fmt(total)} shown</span><button class="btn ghost" data-action="similar-more" data-id="${esc(id)}" data-limit="${all ? 'all' : next}">${all ? `Show all ${fmt(total)}` : `Show more · ${fmt(next)}`}</button></div>`;
+}
+
+function openSimilar(id, limit = 30, opts = {}) {
   const v = byId.get(id);
   if (!v) return;
-  const matches = VOICES.filter(x => x.id !== id).map(x => ({ v: x, score: similarity(v, x) })).sort((a, b) => b.score - a.score).slice(0, 8);
-  const body = `<p>Closest matches to <b style="color:var(--text)">${esc(state.blind ? 'this hidden voice' : v.name)}</b> by shared tone, texture, gender, age, and novel.</p>
-    <div class="similar-list">${matches.map(({ v: m, score }) => {
-      const tags = [...(m.tone || []).slice(0, 3), ...(m.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('');
-      return `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div style="min-width:0;flex:1"><div class="s-name">${esc(m.name)}</div><div class="similar-tags">${tags}</div></div><span class="s-meta">${esc(m.genderClass || '')}</span><span class="s-score">${score} pts</span><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button><button class="icon-btn small" data-action="queue" data-id="${esc(m.id)}" title="Queue">＋</button></div>`;
-    }).join('')}</div>`;
-  openModal('similar', 'More like this', 'A deterministic similarity pass over the library', body);
+  const sameModal = modalKind === 'similar' && similarState.id === id && !!$('modalBody');
+  const scrollTop = sameModal && opts.keepScroll ? ($('modalBody').scrollTop || 0) : 0;
+  const matches = VOICES.filter(x => x.id !== id)
+    .map(x => ({ v: x, score: similarity(v, x) }))
+    .filter(m => m.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const total = matches.length;
+  const topScore = total ? matches[0].score : 1;
+  const normalized = limit === Infinity ? Infinity : Math.max(1, Number(limit) || 30);
+  const visible = Math.min(total, normalized);
+  const shown = matches.slice(0, visible);
+  const sub = total
+    ? `${visible >= total ? 'Showing all' : `Showing ${fmt(visible)} of`} ${fmt(total)} shared-trait matches · best first`
+    : 'No shared-trait matches found';
+  const list = total ? `<div class="similar-list">${shown.map(({ v: m, score }) => {
+    const tags = [...(m.tone || []).slice(0, 3), ...(m.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const strength = Math.max(5, Math.round((score / topScore) * 100));
+    const reasons = similarReasons(v, m);
+    return `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div class="similar-main"><div class="similar-head"><div class="s-name">${esc(m.name)}</div><span class="similar-score">${score} pts</span></div><div class="s-meta">${esc([m.genderClass || '', (m.age || []).join(', ')].filter(Boolean).join(' · ') || '—')}</div><div class="similar-tags">${tags}</div><div class="similar-reason" title="Shared attributes used in the score">${esc(reasons)}</div><div class="similar-bar" title="${score} similarity points out of ${topScore}"><i style="width:${strength}%"></i></div></div><div class="similar-actions"><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button><button class="icon-btn small" data-action="queue" data-id="${esc(m.id)}" title="Queue">＋</button></div></div>`;
+  }).join('')}</div>` : `<div class="similar-empty">No other voice shares any scored attributes with this one.</div>`;
+  const body = `<p>Closest matches to <b style="color:var(--text)">${esc(state.blind ? 'this hidden voice' : v.name)}</b>. Ranked by shared tone, texture, gender, age, and novel.</p>${list}${similarFooter(id, visible, total)}`;
+  similarState = { id, limit: normalized };
+  if (sameModal) {
+    if ($('modalSub')) $('modalSub').textContent = sub;
+    $('modalBody').innerHTML = body;
+    $('modalBody').scrollTop = scrollTop;
+    return;
+  }
+  openModal('similar', 'More like this', sub, body);
 }
 
 // ---------- insights ----------
@@ -4673,7 +4732,7 @@ function openWhatsNew() {
       ['Stars and circles', `Apply green, yellow, blue, or red stars and circles independently. Filter by mark views, use star include/exclude logic, exclude circle colors, and lock stars during a marking pass.`],
       ['Status and priority', `Track each voice through Unreviewed, Shortlist, Callback, and Reject, and flag high, medium, or low priority. Both appear on cards, in table rows, on the board, and in reports.`],
       ['Casting notes', `Write a private note per voice. Notes save locally, can be searched with note:, are visible in Review and peek views, and are included in reports and backups.`],
-      ['Similar voices', `Open More like this to see the closest alternatives ranked by shared tone, texture, gender, age, and novel. Preview or queue a suggestion without losing your place.`],
+      ['Similar voices', `Open More like this to see the closest alternatives ranked by shared tone, texture, gender, age, and novel. Each match explains the shared traits and how strongly it scores; use Show more to expand from 30 up to all matches. Preview or queue a suggestion without losing your place.`],
       ['Cross-book variants', `Duplicate character names are grouped automatically. Open a variant group to compare the same name across story catalogs and hear how each performance differs.`],
       ['Blind audition', `Hide names, sources, descriptions, samples, player labels, and profile metadata while keeping the performance and controls available. Reveal identities only when you are ready.`],
       ['Compare and queue', `Compare up to four voices side by side across metadata, marks, notes, and audio. Build an audition queue with shuffle, reorder, remove, queue playback, and continuous preview.`]
@@ -5083,6 +5142,9 @@ function handleAction(el) {
       break;
     case 'similar':
       if (id) openSimilar(id);
+      break;
+    case 'similar-more':
+      if (id) openSimilar(id, el.dataset.limit === 'all' ? Infinity : Number(el.dataset.limit), { keepScroll: true });
       break;
     case 'note':
       if (id) openNote(id);
