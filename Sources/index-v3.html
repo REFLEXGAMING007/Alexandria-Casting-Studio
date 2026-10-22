@@ -2157,6 +2157,7 @@ let loop = false;
 let playContext = null;
 let loadMoreObserver = null;
 let smartViewDragId = null;
+let peekVoiceId = null;
 let mapZoom = 1;
 let mapPan = { x: 0, y: 0 };
 let modalKind = null;
@@ -3281,6 +3282,7 @@ function updatePlayerUI() {
     if ($('reviewTime')) $('reviewTime').textContent = `${formatTime(current)} / ${formatTime(duration)}`;
     if (reviewVoice()?.id === currentId) drawReviewWave();
   }
+  if (modalKind === 'peek' && $('peekWave')) drawPeekWave();
 }
 function formatTime(seconds) {
   const s = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -3806,6 +3808,16 @@ function drawReviewWave() {
   const canvas = $('reviewWave');
   if (!canvas) return;
   const v = reviewVoice();
+  if (!v) { drawWaveCanvas(canvas, null, 0); return; }
+  const peaks = waveCache.get(v.filename);
+  const same = currentId === v.id;
+  const duration = same && Number.isFinite(audio.duration) && audio.duration ? audio.duration : 0;
+  drawWaveCanvas(canvas, peaks, same && duration ? audio.currentTime / duration : 0);
+}
+function drawPeekWave() {
+  const canvas = $('peekWave');
+  if (!canvas) return;
+  const v = peekVoiceId ? byId.get(peekVoiceId) : null;
   if (!v) { drawWaveCanvas(canvas, null, 0); return; }
   const peaks = waveCache.get(v.filename);
   const same = currentId === v.id;
@@ -4339,6 +4351,7 @@ function exportCsvRows(rows, prefix) {
 }
 
 function openPeek(id) {
+  peekVoiceId = id;
   const v = byId.get(id);
   if (!v) return;
   rememberRecent(id);
