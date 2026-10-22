@@ -5962,8 +5962,21 @@ function bindEvents() {
   if (voiceMap) {
     voiceMap.addEventListener('wheel', e => {
       e.preventDefault();
+      const rect = voiceMap.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
       const factor = e.deltaY < 0 ? 1.12 : 0.89;
-      setMapZoom(mapZoom * factor);
+      const oldW = 1000 / mapZoom;
+      const oldH = 620 / mapZoom;
+      const anchorX = mapPan.x + (mx / (rect.width || 1)) * oldW;
+      const anchorY = mapPan.y + (my / (rect.height || 1)) * oldH;
+      const newZoom = clamp(mapZoom * factor, 0.5, 10);
+      const newW = 1000 / newZoom;
+      const newH = 620 / newZoom;
+      mapZoom = newZoom;
+      mapPan.x = anchorX - (mx / (rect.width || 1)) * newW;
+      mapPan.y = anchorY - (my / (rect.height || 1)) * newH;
+      updateMapViewBox();
     }, { passive: false });
     let mapDragging = false, mapStartX = 0, mapStartY = 0, mapStartPanX = 0, mapStartPanY = 0;
     voiceMap.addEventListener('pointerdown', e => {
