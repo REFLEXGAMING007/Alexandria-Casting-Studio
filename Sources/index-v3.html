@@ -254,13 +254,13 @@ a{color:inherit}
 .range-row{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--muted);padding:4px 2px}
 .range-row input{flex:1;accent-color:var(--accent);min-width:0}
 .range-row output{font:9px ui-monospace,Consolas,monospace;color:var(--accent);min-width:16px;text-align:right}
-.cont-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
-.cont-toggle{display:flex;align-items:center;gap:4px;padding:2px 1px;font-size:9px;color:var(--muted);white-space:nowrap;cursor:pointer}
-.cont-toggle input{accent-color:var(--accent);width:13px;height:13px;margin:0}
-.cont-row select,.cont-row input[type=number]{padding:4px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--muted);font-size:9px;outline:none;min-width:0}
-.cont-row input[type=number]{width:48px}
-.cont-note{font-size:8px;color:var(--dim);white-space:nowrap;padding:0 2px}
-.toolbar-cont{padding:2px 3px 2px 5px;border:1px solid var(--line);border-radius:8px;background:rgba(148,163,184,.04)}
+.cont-row{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0}
+.cont-toggle{display:flex;align-items:center;gap:3px;padding:1px 0;font-size:8px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.cont-toggle input{accent-color:var(--accent);width:11px;height:11px;margin:0}
+.cont-row select,.cont-row input[type=number]{padding:3px 4px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--muted);font-size:8px;outline:none;min-width:0}
+.cont-row input[type=number]{width:36px}
+.cont-note{font-size:7px;color:var(--dim);white-space:nowrap;padding:0 1px}
+.toolbar-cont{padding:1px 2px 1px 4px;border:1px solid var(--line);border-radius:8px;background:rgba(148,163,184,.04)}
 .toolbar-cont:focus-within{border-color:var(--line-strong)}
 /* ---------- main / hero ---------- */
 .insight-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
@@ -270,18 +270,18 @@ a{color:inherit}
 .insight .i-value small{font-size:9px;font-weight:600;color:var(--dim)}
 .insight .bar{margin-top:6px}
 .toolbar-row{
-  position:sticky;top:70px;z-index:24;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
-  padding:7px 8px;border:1px solid var(--line);border-radius:12px;background:rgba(10,16,27,.86);
+  position:sticky;top:70px;z-index:24;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;
+  padding:5px 6px;border:1px solid var(--line);border-radius:12px;background:rgba(10,16,27,.86);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.14);
 }
 [data-theme="light"] .toolbar-row{background:rgba(255,255,255,.86)}
-.toolbar-left,.toolbar-right{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.toolbar-left,.toolbar-right{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
 .view-switch{display:flex;padding:2px;border:1px solid var(--line);border-radius:7px;background:rgba(148,163,184,.04)}
-.view-switch button{padding:4px 7px;border:0;border-radius:5px;background:transparent;color:var(--dim);font-size:9px}
+.view-switch button{padding:3px 5px;border:0;border-radius:5px;background:transparent;color:var(--dim);font-size:8px}
 .view-switch button.active{background:rgba(94,234,212,.12);color:var(--accent)}
-#sort{padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2);color:var(--muted);font-size:9px;outline:none;max-width:140px}
-.toolbar-right .btn{padding:5px 7px;font-size:9px}
-.count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;border-radius:99px;background:rgba(94,234,212,.16);color:var(--accent);font-size:8px;font-weight:800}
+#sort{padding:4px 6px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2);color:var(--muted);font-size:8px;outline:none;max-width:120px}
+.toolbar-right .btn{padding:4px 6px;font-size:8px}
+.count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:13px;height:13px;padding:0 3px;border-radius:99px;background:rgba(94,234,212,.16);color:var(--accent);font-size:7px;font-weight:800}
 .active-filters{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:8px 1px 9px;min-height:20px}
 .active-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid rgba(94,234,212,.22);border-radius:6px;background:rgba(94,234,212,.07);color:var(--accent);font-size:8.5px;max-width:320px}
 .active-chip .x{color:var(--accent);opacity:.65;font-size:10px;padding:0 1px}
@@ -1216,7 +1216,7 @@ body.focus-mode #focusExit{display:flex}
           <div class="cont-row toolbar-cont" role="group" aria-label="Continuous preview">
             <label class="cont-toggle" title="Keep previewing filtered voices after each clip">
               <input id="continuous" type="checkbox">
-              <span>Continuous preview</span>
+              <span>Continuous</span>
             </label>
             <select id="continuousLength" aria-label="Continuous clip length">
               <option value="3">3 s</option>
