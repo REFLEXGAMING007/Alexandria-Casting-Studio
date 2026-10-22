@@ -3858,7 +3858,7 @@ function renderBoard() {
       <div class="board-col-head"><span class="bc-dot"></span><b>${STATUS[status].label}</b><span class="bc-count">${fmt(all.length)}</span></div>
       <div class="board-col-body">
         ${shown.length ? shown.map(boardCardHtml).join('') : '<div class="board-empty">Drop voices here or change a status.</div>'}
-        ${all.length > shown.length ? `<button class="board-more" data-action="board-more" data-status="${status}" title="Load more ${STATUS[status].label} voices">Show ${Math.min(24, all.length - shown.length)} more · ${fmt(all.length - shown.length)} left</button>` : ''}
+        ${all.length > shown.length ? `<button class="board-more" data-action="board-more" data-status="${status}" title="Load more ${STATUS[status].label} voices">Show ${Math.min(48, all.length - shown.length)} more · ${fmt(all.length - shown.length)} left</button>` : ''}
       </div>
     </div>`;
   }).join('');
