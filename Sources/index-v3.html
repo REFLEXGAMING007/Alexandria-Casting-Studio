@@ -209,6 +209,12 @@ a{color:inherit}
 .view-btn .v-del{opacity:0;border:0;background:transparent;color:var(--danger);font-size:12px;padding:0 2px}
 .view-btn:hover .v-del{opacity:1}
 .view-btn .v-hint{font-size:8px;color:var(--dim);margin-left:auto}
+.view-btn[draggable="true"]{cursor:grab}
+.view-btn .v-grip{font-size:9px;line-height:1;color:var(--dim);opacity:.45;letter-spacing:-2px;flex:0 0 auto;padding:0 1px;cursor:grab;user-select:none}
+.view-btn:hover .v-grip{opacity:1;color:var(--muted)}
+.view-btn.dragging{opacity:.35}
+.view-btn.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
+.view-btn.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* marks */
 .mark-panel{display:flex;flex-direction:column;gap:7px;padding:2px 2px 4px}
@@ -2086,6 +2092,7 @@ const state = {
   queue: [],
   compare: [],
   savedViews: [],
+  smartViewOrder: [],
   activity: [],
   recent: [],
   recentSearches: [],
@@ -2102,7 +2109,7 @@ const state = {
   settings: {
     accent: 'teal', reduceMotion: false, autoAdvance: true,
     volume: 0.9, rate: 1, muted: false, confirmDestructive: true,
-    pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more'
+    hidePlayer: false, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more'
   },
   view: 'cards',
   sort: 'name',
@@ -2145,6 +2152,7 @@ let clipTimer = null;
 let loop = false;
 let playContext = null;
 let loadMoreObserver = null;
+let smartViewDragId = null;
 let modalKind = null;
 let paletteItems = [];
 let paletteIndex = 0;
@@ -2246,6 +2254,7 @@ function serialize() {
     recentSearches: [...state.recentSearches],
     queue: [...state.queue],
     savedViews: state.savedViews,
+    smartViewOrder: [...state.smartViewOrder],
     prefs: {
       view: state.view, sort: state.sort, density: state.density,
       hideDesc: state.hideDesc, hideSample: state.hideSample, hideTags: state.hideTags,
@@ -2300,6 +2309,7 @@ function hydrate() {
     if (Array.isArray(data.recentSearches)) state.recentSearches = [...new Set(data.recentSearches.map(String).filter(Boolean))].slice(0, 8);
     if (Array.isArray(data.queue)) state.queue = data.queue.filter(id => byId.has(id));
     if (Array.isArray(data.savedViews)) state.savedViews = data.savedViews.filter(v => v && v.name && v.filters).slice(0, 40);
+    if (Array.isArray(data.smartViewOrder)) state.smartViewOrder = [...new Set(data.smartViewOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
     const p = data.prefs || {};
     if (['cards', 'table'].includes(p.view)) state.view = p.view;
     if (typeof p.sort === 'string') state.sort = p.sort;
@@ -2321,6 +2331,7 @@ function hydrate() {
       if (Number.isFinite(s.rate)) state.settings.rate = [0.75, 1, 1.25, 1.5, 2].includes(s.rate) ? s.rate : 1;
       state.settings.muted = !!s.muted;
       state.settings.confirmDestructive = s.confirmDestructive !== false;
+      state.settings.hidePlayer = !!s.hidePlayer;
       if (Number.isFinite(s.pageSize)) state.settings.pageSize = clamp(Math.round(s.pageSize), 1, 1000);
       if (LOAD_MODES.includes(s.loadMode)) state.settings.loadMode = s.loadMode;
     }
@@ -2642,11 +2653,53 @@ function renderMarksPanel() {
     </div>`;
 }
 
+function smartViewItems() {
+  const all = [
+    ...BUILTIN_VIEWS.map(v => ({ ...v, kind: 'builtin' })),
+    ...state.savedViews.map(v => ({ ...v, kind: 'custom' }))
+  ];
+  const byId = new Map(all.map(v => [v.id, v]));
+  const ordered = [];
+  for (const id of state.smartViewOrder) {
+    const view = byId.get(id);
+    if (view) { ordered.push(view); byId.delete(id); }
+  }
+  for (const view of all) {
+    if (byId.has(view.id)) { ordered.push(view); byId.delete(view.id); }
+  }
+  return ordered;
+}
 function renderSmartViews() {
   const box = $('smartViews');
   if (!box) return;
-  const custom = state.savedViews.map(v => `<div class="view-btn"><button class="v-main" data-action="apply-saved-view" data-view-id="${esc(v.id)}" title="Apply ${esc(v.name)}"><span class="v-icon">◆</span><span class="v-name">${esc(v.name)}</span></button><button class="v-del" data-action="delete-view" data-view-id="${esc(v.id)}" title="Delete view">×</button></div>`).join('');
-  box.innerHTML = BUILTIN_VIEWS.map(v => `<div class="view-btn"><button class="v-main" data-action="apply-builtin-view" data-view-id="${v.id}" title="Apply view"><span class="v-icon">${v.icon}</span><span class="v-name">${esc(v.name)}</span><span class="v-hint">${esc(v.id === 'all' ? fmt(VOICES.length) : v.hint)}</span></button></div>`).join('') + custom;
+  const grip = '<span class="v-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>';
+  box.innerHTML = smartViewItems().map(v => {
+    if (v.kind === 'custom') {
+      return `<div class="view-btn" draggable="true" data-view-id="${esc(v.id)}"><button class="v-main" data-action="apply-saved-view" data-view-id="${esc(v.id)}" title="Apply ${esc(v.name)}">${grip}<span class="v-icon">◆</span><span class="v-name">${esc(v.name)}</span></button><button class="v-del" data-action="delete-view" data-view-id="${esc(v.id)}" title="Delete view">×</button></div>`;
+    }
+    return `<div class="view-btn" draggable="true" data-view-id="${esc(v.id)}"><button class="v-main" data-action="apply-builtin-view" data-view-id="${esc(v.id)}" title="Apply view">${grip}<span class="v-icon">${v.icon}</span><span class="v-name">${esc(v.name)}</span><span class="v-hint">${esc(v.id === 'all' ? fmt(VOICES.length) : v.hint)}</span></button></div>`;
+  }).join('');
+}
+function clearSmartViewDropMarks() {
+  for (const row of document.querySelectorAll('#smartViews .view-btn.drop-before, #smartViews .view-btn.drop-after')) row.classList.remove('drop-before', 'drop-after');
+}
+function reorderSmartView(sourceId, targetId, after) {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const items = smartViewItems();
+  const current = items.map(v => v.id);
+  const from = items.findIndex(v => v.id === sourceId);
+  if (from < 0) return;
+  const [moved] = items.splice(from, 1);
+  let to = items.findIndex(v => v.id === targetId);
+  if (to < 0) return;
+  if (after) to += 1;
+  items.splice(to, 0, moved);
+  const next = items.map(v => v.id);
+  if (next.join('|') === current.join('|')) return;
+  pushHistory('smart view order');
+  state.smartViewOrder = next;
+  persist();
+  renderSmartViews();
 }
 
 function renderCollections() {
@@ -3030,9 +3083,10 @@ function renderCompareDock() {
   const player = $('player');
   if (!dock || !compare || !player) return;
   compare.hidden = !state.compare.length;
-  player.hidden = !currentId;
+  const showPlayer = !!currentId && !state.settings.hidePlayer;
+  player.hidden = !showPlayer;
   const hasBulk = state.selectMode && state.selected.size > 0;
-  dock.hidden = !state.compare.length && !currentId && !hasBulk;
+  dock.hidden = !state.compare.length && !showPlayer && !hasBulk;
   const bulk = $('bulkBar');
   if (bulk) bulk.hidden = !hasBulk;
   if ($('compareChips')) {
@@ -3274,7 +3328,7 @@ function coreSnapshot() {
     priorities: { ...state.priorities },
     customTags: Object.fromEntries(Object.entries(state.customTags).map(([id, tags]) => [id, [...tags]])),
     collections: state.collections.map(c => ({ ...c, ids: [...c.ids] })),
-    queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), activity: state.activity.slice(0, 60), recent: [...state.recent]
+    queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), smartViewOrder: [...state.smartViewOrder], activity: state.activity.slice(0, 60), recent: [...state.recent]
   };
 }
 function pushHistory(label = 'change') {
@@ -3307,6 +3361,7 @@ function restoreCore(data) {
     state.collections = (data.collections || []).map(c => ({ ...c, ids: [...(c.ids || [])] }));
     state.queue = [...(data.queue || [])];
     state.savedViews = data.savedViews || [];
+    state.smartViewOrder = [...(data.smartViewOrder || [])];
     state.activity = data.activity || [];
     state.recent = data.recent || [];
   } finally { restoring = false; }
@@ -3372,7 +3427,11 @@ function applySettings() {
 function setSetting(key, value) {
   if (key === 'volume') state.settings.volume = clamp(Number(value), 0, 1);
   else if (key === 'rate') state.settings.rate = Number(value) || 1;
-  else if (key === 'pageSize') {
+  else if (key === 'hidePlayer') {
+    state.settings.hidePlayer = !!value;
+    persist(); applySettings(); renderDock();
+    return;
+  } else if (key === 'pageSize') {
     state.settings.pageSize = clamp(Math.round(Number(value) || DEFAULT_PAGE_SIZE), 1, 1000);
     state.visibleCount = pageSize();
     persist(); applySettings(); render();
@@ -4060,7 +4119,8 @@ function openSettings() {
       <label class="setting-row"><span>Auto-advance queue</span><input type="checkbox" data-setting="autoAdvance" ${s.autoAdvance ? 'checked' : ''}></label>
       <label class="setting-row"><span>Confirm destructive actions</span><input type="checkbox" data-setting="confirmDestructive" ${s.confirmDestructive ? 'checked' : ''}></label>
       <div class="setting-row"><span>Mute audio</span><input type="checkbox" data-setting="muted" ${s.muted ? 'checked' : ''}></div>
-      <div class="mini-note" style="margin-top:8px">Playback speed and volume apply to every preview. Auto-advance controls the queue and continuous playback.</div>
+      <label class="setting-row"><span>Hide player bar</span><input type="checkbox" data-setting="hidePlayer" ${s.hidePlayer ? 'checked' : ''}></label>
+      <div class="mini-note" style="margin-top:8px">Playback speed and volume apply to every preview. Auto-advance controls the queue and continuous playback. Hiding the player keeps preview audio and keyboard controls active.</div>
     </div>
     <div class="settings-group wide"><h3>Voice library loading</h3>
       <div class="setting-row"><span>Voices per batch</span><input type="number" min="1" max="1000" step="1" value="${s.pageSize}" data-setting="pageSize" aria-label="Voices per batch"></div>
@@ -4096,7 +4156,7 @@ function openSettings() {
   if (source) source.textContent = catalogSourceText();
 }
 function resetSettings() {
-  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more' };
+  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true, hidePlayer: false, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more' };
   state.visibleCount = pageSize();
   persist(); applySettings(); openSettings(); render();
   showToast('Settings reset.', 'info');
@@ -4118,12 +4178,12 @@ function eraseStudioData() {
   state.appliedCircleExclusions = emptyExclusions();
   state.starView = null; state.circleView = null;
   state.statusesById = {}; state.notes = {}; state.priorities = {}; state.customTags = {};
-  state.collections = []; state.queue = []; state.compare = []; state.savedViews = [];
+  state.collections = []; state.queue = []; state.compare = []; state.savedViews = []; state.smartViewOrder = [];
   state.activity = []; state.recent = []; state.recentSearches = [];
   state.workspace = 'library'; state.mapMode = 'manifest';
   state.blind = false; state.focus = false; state.selectMode = false; state.selected.clear();
   state.boardLimits = {}; state.reviewIds = []; state.reviewIndex = 0; state.reviewOpen = false;
-  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more' };
+  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true, hidePlayer: false, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more' };
   state.view = 'cards'; state.sort = 'name'; state.density = 3;
   state.hideDesc = false; state.hideSample = false; state.hideTags = false;
   state.theme = 'dark'; state.continuous = false; state.continuousLength = '3'; state.continuousCustom = '15';
@@ -4974,6 +5034,7 @@ function deleteView(id) {
   if (!confirm(`Delete the saved view “${view.name}”?`)) return;
   pushHistory('saved view deletion');
   state.savedViews = state.savedViews.filter(v => v.id !== id);
+  state.smartViewOrder = state.smartViewOrder.filter(v => v !== id);
   persist();
   render();
   showToast('Saved view deleted.', 'info');
@@ -5066,8 +5127,6 @@ function changePage(delta) {
   if (next === page.page) return;
   state.visibleCount = (next + 1) * pageSize();
   renderResults();
-  const target = $('workspace-library');
-  if (target) target.scrollIntoView({ behavior: state.settings.reduceMotion ? 'auto' : 'smooth', block: 'start' });
 }
 function setupInfiniteLoader() {
   const pager = $('pager');
@@ -5827,6 +5886,44 @@ function bindEvents() {
   });
   const paletteInput = $('paletteInput');
   if (paletteInput) paletteInput.addEventListener('input', () => { paletteIndex = 0; renderPalette(paletteInput.value); });
+  const smartViews = $('smartViews');
+  if (smartViews) {
+    smartViews.addEventListener('dragstart', e => {
+      const row = e.target instanceof Element ? e.target.closest('.view-btn[draggable="true"]') : null;
+      if (!row) return;
+      smartViewDragId = row.dataset.viewId || null;
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', smartViewDragId || '');
+      }
+      row.classList.add('dragging');
+    });
+    smartViews.addEventListener('dragover', e => {
+      const row = e.target instanceof Element ? e.target.closest('.view-btn[draggable="true"]') : null;
+      if (!row || !smartViewDragId || row.dataset.viewId === smartViewDragId) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const after = e.clientY > row.getBoundingClientRect().top + row.offsetHeight / 2;
+      for (const item of smartViews.querySelectorAll('.view-btn')) {
+        item.classList.toggle('drop-before', item === row && !after);
+        item.classList.toggle('drop-after', item === row && after);
+      }
+    });
+    smartViews.addEventListener('drop', e => {
+      const row = e.target instanceof Element ? e.target.closest('.view-btn[draggable="true"]') : null;
+      if (!row) return;
+      e.preventDefault();
+      const sourceId = smartViewDragId || e.dataTransfer?.getData('text/plain') || '';
+      const after = row.classList.contains('drop-after');
+      smartViewDragId = null;
+      clearSmartViewDropMarks();
+      reorderSmartView(sourceId, row.dataset.viewId, after);
+    });
+    smartViews.addEventListener('dragend', () => {
+      smartViewDragId = null;
+      for (const row of smartViews.querySelectorAll('.view-btn')) row.classList.remove('dragging', 'drop-before', 'drop-after');
+    });
+  }
   const search = $('search');
   if (search) search.addEventListener('input', debounce(() => {
     state.search = search.value;
