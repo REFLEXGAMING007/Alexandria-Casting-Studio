@@ -6143,8 +6143,8 @@ function bindEvents() {
     let sidebarDragId = null;
     sidebar.addEventListener('dragstart', e => {
       const row = e.target instanceof Element ? e.target.closest('.side-card[draggable="true"]') : null;
-      const grip = e.target instanceof Element ? e.target.closest('.side-grip') : null;
-      if (!row || !grip) return;
+      if (!row) return;
+      if (e.target instanceof Element && e.target.closest('button, input, select, textarea, a')) return;
       sidebarDragId = row.dataset.sideSection || null;
       if (e.dataTransfer) {
         e.dataTransfer.effectAllowed = 'move';
