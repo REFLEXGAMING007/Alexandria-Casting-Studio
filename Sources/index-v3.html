@@ -248,9 +248,14 @@ a{color:inherit}
 .range-row{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--muted);padding:4px 2px}
 .range-row input{flex:1;accent-color:var(--accent);min-width:0}
 .range-row output{font:9px ui-monospace,Consolas,monospace;color:var(--accent);min-width:16px;text-align:right}
-.cont-row{display:flex;align-items:center;gap:5px;padding:3px 2px}
+.cont-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
+.cont-toggle{display:flex;align-items:center;gap:4px;padding:2px 1px;font-size:9px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.cont-toggle input{accent-color:var(--accent);width:13px;height:13px;margin:0}
 .cont-row select,.cont-row input[type=number]{padding:4px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--muted);font-size:9px;outline:none;min-width:0}
 .cont-row input[type=number]{width:48px}
+.cont-note{font-size:8px;color:var(--dim);white-space:nowrap;padding:0 2px}
+.toolbar-cont{padding:2px 3px 2px 5px;border:1px solid var(--line);border-radius:8px;background:rgba(148,163,184,.04)}
+.toolbar-cont:focus-within{border-color:var(--line-strong)}
 /* ---------- main / hero ---------- */
 .insight-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
 .insight{padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--panel);min-width:0}
@@ -1101,20 +1106,6 @@ body.focus-mode #focusExit{display:flex}
           <button class="btn ghost" data-action="toggle-hide" data-hide="tags">Tags</button>
           <button class="btn ghost" data-action="open-downloads">Exports</button>
         </div>
-        <label class="switch-row" style="margin-top:5px"><span>Continuous preview</span><input id="continuous" type="checkbox"></label>
-        <div class="cont-row">
-          <select id="continuousLength" aria-label="Continuous clip length">
-            <option value="3">3 s</option>
-            <option value="5">5 s</option>
-            <option value="8">8 s</option>
-            <option value="12">12 s</option>
-            <option value="20">20 s</option>
-            <option value="0">Full</option>
-            <option value="custom">Custom</option>
-          </select>
-          <input id="continuousN" type="number" min="1" max="120" value="15" title="Custom seconds" hidden>
-          <span class="muted" style="font-size:8px">per voice</span>
-        </div>
       </div>
     </section>
   </aside>
@@ -1192,6 +1183,23 @@ body.focus-mode #focusExit{display:flex}
           <button class="btn ghost" data-action="random" title="Jump to a random voice">✦ Random</button>
           <button class="btn ghost" data-action="toggle-select" id="selectBtn" title="Select multiple voices">☑ Select</button>
           <button class="btn ghost" data-action="toggle-blind" title="Blind audition">◐ Blind</button>
+          <div class="cont-row toolbar-cont" role="group" aria-label="Continuous preview">
+            <label class="cont-toggle" title="Keep previewing filtered voices after each clip">
+              <input id="continuous" type="checkbox">
+              <span>Continuous preview</span>
+            </label>
+            <select id="continuousLength" aria-label="Continuous clip length">
+              <option value="3">3 s</option>
+              <option value="5">5 s</option>
+              <option value="8">8 s</option>
+              <option value="12">12 s</option>
+              <option value="20">20 s</option>
+              <option value="0">Full</option>
+              <option value="custom">Custom</option>
+            </select>
+            <input id="continuousN" type="number" min="1" max="120" value="15" title="Custom seconds" hidden>
+            <span class="cont-note">per voice</span>
+          </div>
         </div>
         <div class="toolbar-right">
           <button class="btn ghost" data-action="open-report" title="Print a casting report">▤ Report</button>
