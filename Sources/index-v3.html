@@ -111,8 +111,8 @@ a{color:inherit}
 /* ---------- layout ---------- */
 .layout{width:100%;max-width:1600px;margin:0 auto;padding:20px;display:grid;grid-template-columns:318px minmax(0,1fr);gap:20px;align-items:start}
 .sidebar{
-  position:sticky;top:82px;max-height:calc(100vh - 96px);overflow:auto;padding:0 4px 20px 0;
-  display:flex;flex-direction:column;gap:12px;scrollbar-gutter:stable;
+  padding:0 4px 20px 0;
+  display:flex;flex-direction:column;gap:12px;
 }
 .main{min-width:0;padding-bottom:170px}
 .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:4px 0 14px}
@@ -1007,7 +1007,7 @@ body.focus-mode #focusExit{display:flex}
       <div class="search-hint">Supports <code>gender:</code> <code>tone:</code> <code>status:</code> and <code>-</code> negation</div>
       <div class="search-help" id="searchHelp" hidden>
         <b>Advanced search</b><br>
-        <code>gender:female</code> · <code>age:adult</code> · <code>manifest:MOL</code><br>
+        <code>gender:female</code> · <code>age:adult</code> · <code>novel:MOL</code><br>
         <code>texture:deep</code> · <code>tone:calm</code> · <code>status:shortlist</code><br>
         <code>is:marked</code> · <code>has:note</code> · <code>mark:star-green</code><br>
         <code>priority:high</code> · <code>tag:lead</code> · <code>quality:complete</code><br>
@@ -1180,7 +1180,7 @@ body.focus-mode #focusExit{display:flex}
           <select id="sort" aria-label="Sort voices">
             <option value="name">Name A–Z</option>
             <option value="name_desc">Name Z–A</option>
-            <option value="manifest">Manifest</option>
+            <option value="manifest">Novel</option>
             <option value="gender">Gender</option>
             <option value="age">Age</option>
             <option value="marked">Most marked</option>
@@ -1241,7 +1241,7 @@ body.focus-mode #focusExit{display:flex}
         </div>
         <div class="workspace-tools">
           <select id="mapMode" aria-label="Color map by">
-            <option value="manifest">Color by manifest</option>
+            <option value="manifest">Color by novel</option>
             <option value="gender">Color by gender</option>
             <option value="status">Color by status</option>
             <option value="priority">Color by priority</option>
@@ -1960,7 +1960,7 @@ const V2_KEY = 'alexandria_voice_studio_v1';
 const OLD_MARKS_KEY = 'alexandria_voice_browser_marks_v2';
 const PAGE_SIZE = 24;
 const FACETS = [
-  { key: 'manifest', label: 'Manifest', order: MANIFEST_ORDER },
+  { key: 'manifest', label: 'Novel', order: MANIFEST_ORDER },
   { key: 'gender', label: 'Gender', order: GENDER_ORDER },
   { key: 'age', label: 'Age group', order: AGE_ORDER },
   { key: 'texture', label: 'Texture', order: null, limit: 10 },
@@ -2233,7 +2233,7 @@ function hydrate() {
       }
     }
     if (Array.isArray(data.collections)) {
-      state.collections = data.collections.filter(c => c && c.name && Array.isArray(c.ids)).slice(0, 40).map((c, i) => ({
+      state.collections = data.collections.filter(c => c && c.name && Array.isArray(c.ids)).slice(0, 100).map((c, i) => ({
         id: String(c.id || 'col_' + i), name: String(c.name).slice(0, 50),
         ids: [...new Set(c.ids.filter(id => byId.has(id)))], color: c.color || '#5eead4'
       }));
@@ -2341,7 +2341,7 @@ function queryMatches(v) {
         ok = (v.genderClass || '').toLowerCase().includes(value); break;
       case 'age': case 'a':
         ok = (v.age || []).some(x => x.toLowerCase().includes(value)); break;
-      case 'manifest': case 'm': case 'source': case 'book':
+      case 'novel': case 'manifest': case 'm': case 'source': case 'book':
         ok = (v.manifestTag || '').toLowerCase().includes(value); break;
       case 'priority': case 'pri':
         ok = value === 'any' ? priorityOf(v.id) !== 'none' : priorityOf(v.id) === value; break;
@@ -2709,7 +2709,7 @@ function renderInsightsStrip() {
         + (state.collectionView ? 1 : 0) + (state.starView ? 1 : 0) + (state.circleView ? 1 : 0)
         + (state.starLogic !== 'off' ? 1 : 0) + (state.circleLogic !== 'off' ? 1 : 0)
         + (!state.circleView && COLORS.some(c => state.appliedCircleExclusions[c]) ? 1 : 0);
-      $('resultLine').textContent = `${fmt(results)} of ${fmt(total)} voices${active || state.search.trim() ? ' match your filters' : ' across ' + new Set(VOICES.map(v => v.manifestTag)).size + ' manifests'}`;
+      $('resultLine').textContent = `${fmt(results)} of ${fmt(total)} voices${active || state.search.trim() ? ' match your filters' : ' across ' + new Set(VOICES.map(v => v.manifestTag)).size + ' novels'}`;
     }
   }
   if ($('compareCount')) $('compareCount').textContent = fmt(state.compare.length);
@@ -2783,7 +2783,7 @@ function cardHtml(v) {
   return `<article class="card${currentId === v.id ? ' playing' : ''}${selected ? ' selected' : ''}" data-id="${esc(v.id)}" style="--source:${sourceColor(v.manifestTag)}">
     ${state.selectMode ? `<button class="select-box ${selected ? 'on' : ''}" data-action="select-voice" data-id="${esc(v.id)}" title="Select voice" aria-label="Select voice">${selected ? '✓' : ''}</button>` : ''}
     <div class="card-top">
-      <button class="source-pill" style="--source:${sourceColor(v.manifestTag)}" data-action="filter-tag" data-facet="manifest" data-value="${esc(v.manifestTag || '')}" title="Filter by manifest">${esc(v.manifestTag || '—')}</button>
+      <button class="source-pill" style="--source:${sourceColor(v.manifestTag)}" data-action="filter-tag" data-facet="manifest" data-value="${esc(v.manifestTag || '')}" title="Filter by novel">${esc(v.manifestTag || '—')}</button>
       <h3 class="card-name"${titleAttr(v.name)}>${esc(v.name)}</h3>
       ${pri !== 'none' ? `<button class="priority-pill ${pri}" data-action="cycle-priority" data-id="${esc(v.id)}" title="Priority — click to cycle">${PRIORITY_LABEL[pri]}</button>` : ''}
       ${st !== 'unreviewed' ? `<span class="status-pill ${st}">${STATUS[st].label}</span>` : ''}
@@ -3845,12 +3845,12 @@ function renderInsightsWorkspace() {
     <div class="insights-card span-3"><h3>High priority</h3><div class="big-stat">${fmt(priorityHigh)}<small>flagged</small></div><div class="mini-note">${fmt(marked)} marked · ${fmt(notes)} with notes</div></div>
     <div class="insights-card span-4"><h3>Review status</h3><div class="donut-wrap">${donutSvg(statusItems, total || 1)}<div class="donut-legend">${statusLegend}</div></div></div>
     <div class="insights-card span-4"><h3>Voice DNA · average of view</h3><div class="radar-wrap">${radarSvg(scores)}</div><div class="mini-note">Energy, warmth, authority, playfulness, and clarity are derived from tone/texture vocabulary counts.</div></div>
-    <div class="insights-card span-4"><h3>Manifest coverage</h3>${insightBars(manifests, total || 1)}<div class="mini-note">${state.collections.length ? `${state.collections.length} collections in this studio.` : 'Create collections to group casting ideas.'}</div></div>
+    <div class="insights-card span-4"><h3>Novel coverage</h3>${insightBars(manifests, total || 1)}<div class="mini-note">${state.collections.length ? `${state.collections.length} collections in this studio.` : 'Create collections to group casting ideas.'}</div></div>
     <div class="insights-card span-5"><h3>Gender distribution</h3>${insightBars(genders, total || 1)}</div>
     <div class="insights-card span-4"><h3>Age groups</h3>${insightBars(ages, total || 1)}<div class="mini-note">Age groups are independent; a voice can carry several.</div></div>
     <div class="insights-card span-3"><h3>Review funnel</h3><div class="funnel">${statusItems.map(([s, n]) => `<div class="funnel-row"><span class="f-label">${STATUS[s].label}</span><span class="f-track"><span class="f-fill" style="width:${pct(n, total)}%;background:${STATUS_COLORS[s]}"></span></span><b>${fmt(n)}</b></div>`).join('')}</div><div class="mini-note">Open the board to drag voices between stages.</div></div>
-    <div class="insights-card span-7"><h3>Tone × manifest heatmap</h3><div class="heatmap"><div></div>${MANIFEST_ORDER.map(m => `<div class="hm-head">${esc(m)}</div>`).join('')}${heatHtml}</div><div class="mini-note">Counts of the most common tone terms in the current view.</div></div>
-    <div class="insights-card span-5"><h3>Thinnest manifest / gender combinations</h3>${thin.map(([label, n]) => `<div class="gap-item"><div class="g-top"><span>${esc(label)}</span><b>${fmt(n)}</b></div><div class="bar"><i style="width:${Math.max(2, pct(n, thinMax))}%"></i></div></div>`).join('') || '<div class="mini-note">No rows in view.</div>'}</div>
+    <div class="insights-card span-7"><h3>Tone × novel heatmap</h3><div class="heatmap"><div></div>${MANIFEST_ORDER.map(m => `<div class="hm-head">${esc(m)}</div>`).join('')}${heatHtml}</div><div class="mini-note">Counts of the most common tone terms in the current view.</div></div>
+    <div class="insights-card span-5"><h3>Thinnest novel / gender combinations</h3>${thin.map(([label, n]) => `<div class="gap-item"><div class="g-top"><span>${esc(label)}</span><b>${fmt(n)}</b></div><div class="bar"><i style="width:${Math.max(2, pct(n, thinMax))}%"></i></div></div>`).join('') || '<div class="mini-note">No rows in view.</div>'}</div>
     <div class="insights-card span-4"><h3>Data health</h3>${[['Missing audio', missing], ['Duplicate names', dupes], ['Complete records', complete], ['No custom tags', untagged]].map(([l, n]) => `<div class="funnel-row"><span class="f-label" style="width:100px">${l}</span><span class="f-track"><span class="f-fill" style="width:${pct(n, total)}%"></span></span><b>${fmt(n)}</b></div>`).join('')}<div class="mini-note">Scoped to the current view. Click a data-health check in the sidebar to filter.</div></div>
     <div class="insights-card span-4"><h3>Collections</h3>${collections.length ? collections.map(([name, n]) => `<div class="gap-item"><div class="g-top"><span>▣ ${esc(name)}</span><b>${fmt(n)}</b></div></div>`).join('') : '<div class="mini-note">No collections yet. Create one from the sidebar or a card.</div>'}</div>
     <div class="insights-card span-4"><h3>Casting actions</h3><div class="mini-note" style="font-size:9px">${fmt(notes)} notes · ${fmt(marked)} marked · ${fmt(state.compare.length)} in compare · ${fmt(state.queue.length)} in queue</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:7px"><button class="btn ghost" data-action="open-report">▤ Build report</button><button class="btn ghost" data-action="set-workspace" data-workspace="board">▦ Open board</button><button class="btn ghost" data-action="open-review">▶ Review</button></div></div>
@@ -3894,7 +3894,7 @@ function renderReview() {
   if ($('reviewMarks')) $('reviewMarks').innerHTML = `<div class="rm-grid">${reviewMarksHtml(v)}</div>${priorityOf(v.id) !== 'none' ? `<div style="margin-top:6px"><span class="priority-pill ${priorityOf(v.id)}">${PRIORITY_LABEL[priorityOf(v.id)]}</span></div>` : ''}`;
   if ($('reviewPriority')) $('reviewPriority').innerHTML = `<select class="priority-select" data-review-priority="${esc(v.id)}" style="width:100%">${['none', ...PRIORITIES].map(p => `<option value="${p}"${priorityOf(v.id) === p ? ' selected' : ''}>${PRIORITY_LABEL[p]}</option>`).join('')}</select>`;
   if ($('reviewTagsEdit')) $('reviewTagsEdit').innerHTML = `${tagsOf(v.id).length ? tagsOf(v.id).map(t => `<span class="tag-pill">#${esc(t)}</span>`).join('') : '<span class="mini-note">No custom tags.</span>'}<button class="btn ghost" style="font-size:8px;margin-top:5px" data-action="tag" data-id="${esc(v.id)}">+ Edit tags</button>`;
-  if ($('reviewMeta')) $('reviewMeta').innerHTML = `<div>Manifest <b>${esc(v.manifestTag || '—')}</b></div><div>Gender <b>${esc(v.genderClass || '—')}</b></div><div>Age <b>${esc((v.age || []).join(', ') || '—')}</b></div><div>Status <b>${STATUS[statusOf(v.id)].label}</b></div><div>Collections <b>${collectionIdsFor(v.id).map(id => collectionNameFor(id)).join(', ') || '—'}</b></div><div style="margin-top:4px;font-size:7.5px;color:var(--dim);word-break:break-all">${esc(v.filename || 'No audio')}</div>`;
+  if ($('reviewMeta')) $('reviewMeta').innerHTML = `<div>Novel <b>${esc(v.manifestTag || '—')}</b></div><div>Gender <b>${esc(v.genderClass || '—')}</b></div><div>Age <b>${esc((v.age || []).join(', ') || '—')}</b></div><div>Status <b>${STATUS[statusOf(v.id)].label}</b></div><div>Collections <b>${collectionIdsFor(v.id).map(id => collectionNameFor(id)).join(', ') || '—'}</b></div><div style="margin-top:4px;font-size:7.5px;color:var(--dim);word-break:break-all">${esc(v.filename || 'No audio')}</div>`;
   if ($('reviewNote') && document.activeElement !== $('reviewNote')) $('reviewNote').value = noteOf(v.id);
   const reviewed = VOICES.filter(x => statusOf(x.id) !== 'unreviewed').length;
   if ($('reviewProgressBar')) $('reviewProgressBar').style.width = pct(reviewed, VOICES.length) + '%';
@@ -4079,7 +4079,7 @@ function buildReportHtml(rows) {
     <div class="head"><div><div class="brand">ALEXANDRIA · CASTING STUDIO</div><h1>Voice casting report</h1><p>${esc(state.search.trim() ? `Search: ${state.search}` : 'Complete filtered view')} · ${state.collectionView ? `Collection: ${esc(collectionNameFor(state.collectionView))}` : 'All collections'}</p></div><div class="meta">Generated ${esc(date)}<br>${fmt(rows.length)} voices · Concept 03</div></div>
     <div class="grid"><div class="stat"><b>${fmt(rows.length)}</b><span>Voices</span></div><div class="stat"><b>${fmt(rows.filter(v => statusOf(v.id) === 'shortlist').length)}</b><span>Shortlist</span></div><div class="stat"><b>${fmt(rows.filter(v => priorityOf(v.id) === 'high').length)}</b><span>High priority</span></div><div class="stat"><b>${fmt(rows.filter(v => noteOf(v.id)).length)}</b><span>With notes</span></div></div>
     <div class="bars">${statusCounts.map(([l, n]) => `<span>${l} <b>${fmt(n)}</b></span>`).join('')}${manifestCounts.map(([l, n]) => `<span>${esc(l)} <b>${fmt(n)}</b></span>`).join('')}</div>
-    <table><thead><tr><th>Voice</th><th>Manifest</th><th>Tags / collections</th><th>File</th><th>Gender / age</th><th>Tone / texture</th><th>Status</th><th>Priority</th><th>Marks</th><th>Note</th></tr></thead><tbody>
+    <table><thead><tr><th>Voice</th><th>Novel</th><th>Tags / collections</th><th>File</th><th>Gender / age</th><th>Tone / texture</th><th>Status</th><th>Priority</th><th>Marks</th><th>Note</th></tr></thead><tbody>
     ${rows.map(v => `<tr><td class="name">${esc(v.name)}</td><td>${esc(v.manifestTag || '—')}</td><td>${(tagsOf(v.id).map(t => `<span class="tag">#${esc(t)}</span>`).join('') + collectionIdsFor(v.id).map(cid => `<span class="tag">▣ ${esc(collectionNameFor(cid))}</span>`).join('')) || '—'}</td><td class="file">${esc(v.filename || '—')}</td><td>${esc(v.genderClass || '—')} · ${esc((v.age || []).join(', ') || '—')}</td><td>${[...(v.tone || []).slice(0, 4), ...(v.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('')}</td><td>${STATUS[statusOf(v.id)].label}</td><td>${priorityOf(v.id) === 'none' ? '—' : PRIORITY_LABEL[priorityOf(v.id)]}</td><td>${COLORS.filter(c => hasMark('stars', c, v.id)).map(c => '★' + COLOR_LABEL[c]).join(' ') || '—'} ${COLORS.filter(c => hasMark('circles', c, v.id)).map(c => '●' + COLOR_LABEL[c]).join(' ')}</td><td class="note">${esc(noteOf(v.id))}</td></tr>`).join('')}
     </tbody></table><div class="footer"><span>Generated locally by Alexandria Casting Studio · read-only audition surface</span><span>${esc(location.href.split('#')[0])}</span></div></body></html>`;
 }
@@ -4087,7 +4087,7 @@ function openReport() {
   const rows = reportRows();
   if (!rows.length) { showToast('Nothing in view to report.', 'warn'); return; }
   const body = `<p>Build a printable casting sheet for <b style="color:var(--text)">${fmt(rows.length)}</b> voices. Marked status, priority, marks, custom tags, collections, filenames, and private notes are included.</p>
-    <div class="report-preview"><h3>Voice casting report</h3><div>${fmt(rows.length)} voices · ${state.collectionView ? esc(collectionNameFor(state.collectionView)) : 'Current filtered view'} · ${new Date().toLocaleDateString()}</div><table><tr><th>Voice</th><th>Manifest</th><th>Status</th><th>Priority</th></tr>${rows.slice(0, 7).map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.manifestTag || '')}</td><td>${STATUS[statusOf(v.id)].label}</td><td>${priorityOf(v.id) === 'none' ? '—' : PRIORITY_LABEL[priorityOf(v.id)]}</td></tr>`).join('')}</table>${rows.length > 7 ? `<div style="margin-top:4px">+ ${fmt(rows.length - 7)} more rows</div>` : ''}</div>
+    <div class="report-preview"><h3>Voice casting report</h3><div>${fmt(rows.length)} voices · ${state.collectionView ? esc(collectionNameFor(state.collectionView)) : 'Current filtered view'} · ${new Date().toLocaleDateString()}</div><table><tr><th>Voice</th><th>Novel</th><th>Status</th><th>Priority</th></tr>${rows.slice(0, 7).map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.manifestTag || '')}</td><td>${STATUS[statusOf(v.id)].label}</td><td>${priorityOf(v.id) === 'none' ? '—' : PRIORITY_LABEL[priorityOf(v.id)]}</td></tr>`).join('')}</table>${rows.length > 7 ? `<div style="margin-top:4px">+ ${fmt(rows.length - 7)} more rows</div>` : ''}</div>
     <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:10px"><button class="btn ghost" data-action="download-report">⤓ Download HTML</button><button class="btn primary" data-action="print-report">▤ Print / PDF</button></div>`;
   openModal('report', 'Casting report', 'A print-ready snapshot of the current view', body);
 }
@@ -4126,7 +4126,7 @@ function importStateFile(file) {
   reader.readAsText(file);
 }
 function exportCsvRows(rows, prefix) {
-  const header = ['name', 'manifest', 'gender', 'age', 'texture', 'tone', 'status', 'priority', 'custom_tags', 'collections', 'marks', 'note', 'filename', 'description', 'sample'];
+  const header = ['name', 'novel', 'gender', 'age', 'texture', 'tone', 'status', 'priority', 'custom_tags', 'collections', 'marks', 'note', 'filename', 'description', 'sample'];
   const lines = [header.map(csvCell).join(',')];
   for (const v of rows) {
     const marks = COLORS.flatMap(c => [hasMark('stars', c, v.id) ? `star-${c}` : '', hasMark('circles', c, v.id) ? `circle-${c}` : '']).filter(Boolean).join(' | ');
@@ -4178,7 +4178,7 @@ function openVariants(id) {
   const v = byId.get(id);
   if (!v) return;
   const group = duplicateGroups.get(nameKey(v)) || [v];
-  const body = `<p>${state.blind ? `${group.length} voices share a normalized name across the loaded manifests.` : `${group.length} voices share the normalized name <b style="color:var(--text)">${esc(v.name)}</b> across the loaded manifests.`} Compare their age, tone, texture, and notes before casting.</p>
+  const body = `<p>${state.blind ? `${group.length} voices share a normalized name across the loaded novels.` : `${group.length} voices share the normalized name <b style="color:var(--text)">${esc(v.name)}</b> across the loaded novels.`} Compare their age, tone, texture, and notes before casting.</p>
     <div class="similar-list">${group.map(m => `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div style="min-width:0;flex:1"><div class="s-name">${esc(m.name)}</div><div class="s-meta">${esc(m.genderClass || '—')} · ${esc((m.age || []).join(', ') || '—')}</div><div class="similar-tags">${[...(m.tone || []).slice(0, 4), ...(m.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div><span class="s-score">${STATUS[statusOf(m.id)].label}</span><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="peek" data-id="${esc(m.id)}" title="Peek">⌕</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button></div>`).join('')}</div>`;
   openModal('variants', 'Cross-book variants', 'Deterministic duplicate-name grouping', body);
 }
@@ -4367,7 +4367,7 @@ function openSimilar(id) {
   const v = byId.get(id);
   if (!v) return;
   const matches = VOICES.filter(x => x.id !== id).map(x => ({ v: x, score: similarity(v, x) })).sort((a, b) => b.score - a.score).slice(0, 8);
-  const body = `<p>Closest matches to <b style="color:var(--text)">${esc(state.blind ? 'this hidden voice' : v.name)}</b> by shared tone, texture, gender, age, and manifest.</p>
+  const body = `<p>Closest matches to <b style="color:var(--text)">${esc(state.blind ? 'this hidden voice' : v.name)}</b> by shared tone, texture, gender, age, and novel.</p>
     <div class="similar-list">${matches.map(({ v: m, score }) => {
       const tags = [...(m.tone || []).slice(0, 3), ...(m.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('');
       return `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div style="min-width:0;flex:1"><div class="s-name">${esc(m.name)}</div><div class="similar-tags">${tags}</div></div><span class="s-meta">${esc(m.genderClass || '')}</span><span class="s-score">${score} pts</span><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button><button class="icon-btn small" data-action="queue" data-id="${esc(m.id)}" title="Queue">＋</button></div>`;
@@ -4646,7 +4646,7 @@ function runPaletteItem(index) {
 function openWhatsNew() {
   const steps = [
     ['Choose a workspace', `Library holds the complete catalog. Board tracks casting decisions, Map places voices in tone space, and Insights summarizes the current selection. Filters and marks follow you between them.`],
-    ['Search and filter', `Start with the search box or the Filters panel. Plain words search names and descriptions; field queries such as gender:female, manifest:LOTM, tone:calm, status:shortlist, tag:Lead, or has:note narrow precisely. Quote phrases and prefix a minus sign to exclude.`],
+    ['Search and filter', `Start with the search box or the Filters panel. Plain words search names and descriptions; field queries such as gender:female, novel:LOTM, tone:calm, status:shortlist, tag:Lead, or has:note narrow precisely. Quote phrases and prefix a minus sign to exclude.`],
     ['Audition the voice', `Press play on any card or table row. Click the waveform to seek, loop a clip, change speed, or use Play results for a continuous pass through the filtered list. Queue voices, compare up to four, or hide their identities with Blind audition.`],
     ['Capture your judgment', `Use stars and circles for quick preferences, set review status and priority, and write a note. Add custom tags and collections to group roles, characters, or shortlists.`],
     ['Work the pipeline', `Drag cards between Unreviewed, Shortlist, Callback, and Reject on the Board. Open Review for one voice at a time with larger artwork, notes, marks, similar voices, and cross-book variants.`],
@@ -4655,8 +4655,8 @@ function openWhatsNew() {
   const sections = [
     ['Find and browse', [
       ['Complete library and views', `The studio reads ${fmt(VOICES.length)} voices from designed_voices/persona, including preview WAVs, gender, age, texture, tone, descriptions, sample lines, and filenames. Browse 24 cards at a time, load more, or switch to a compact table with sort, density, and field-visibility controls.`],
-      ['Search and query language', `Free text searches names and descriptions as you type. Use quoted phrases for exact wording and a leading minus to exclude. Field filters include gender:, age:, manifest:, book:, source:, texture:, tone:, status:, priority:, tag:, collection:, quality:, mark:, is:, has:, and note:.`],
-      ['Counted facets', `Manifest, gender, age, texture, tone, review status, priority, custom tags, and data quality each expose live counts. Combine facets with search, or clear everything at once when you change direction.`],
+      ['Search and query language', `Free text searches names and descriptions as you type. Use quoted phrases for exact wording and a leading minus to exclude. Field filters include gender:, age:, novel:, book:, source:, texture:, tone:, status:, priority:, tag:, collection:, quality:, mark:, is:, has:, and note:.`],
+      ['Counted facets', `Novel, gender, age, texture, tone, review status, priority, custom tags, and data quality each expose live counts. Combine facets with search, or clear everything at once when you change direction.`],
       ['Saved views and links', `Save the current search, facets, and filters as a named view. The URL also reflects the active workspace and filters, so a bookmarked or shared link restores the same working context.`],
       ['Recent history and suggestions', `Recent searches and recently auditioned voices stay close at hand. When a name search finds nothing, close-match suggestions help recover from a typo.`],
       ['Audition player', `Every preview opens in a persistent waveform player with click-to-seek, play/pause, loop, playback speed, volume, mute, and elapsed time. Play results previews the current filtered list continuously with a selected clip length.`]
@@ -4665,7 +4665,7 @@ function openWhatsNew() {
       ['Stars and circles', `Apply green, yellow, blue, or red stars and circles independently. Filter by mark views, use star include/exclude logic, exclude circle colors, and lock stars during a marking pass.`],
       ['Status and priority', `Track each voice through Unreviewed, Shortlist, Callback, and Reject, and flag high, medium, or low priority. Both appear on cards, in table rows, on the board, and in reports.`],
       ['Casting notes', `Write a private note per voice. Notes save locally, can be searched with note:, are visible in Review and peek views, and are included in reports and backups.`],
-      ['Similar voices', `Open More like this to see the closest alternatives ranked by shared tone, texture, gender, age, and manifest. Preview or queue a suggestion without losing your place.`],
+      ['Similar voices', `Open More like this to see the closest alternatives ranked by shared tone, texture, gender, age, and novel. Preview or queue a suggestion without losing your place.`],
       ['Cross-book variants', `Duplicate character names are grouped automatically. Open a variant group to compare the same name across story catalogs and hear how each performance differs.`],
       ['Blind audition', `Hide names, sources, descriptions, samples, player labels, and profile metadata while keeping the performance and controls available. Reveal identities only when you are ready.`],
       ['Compare and queue', `Compare up to four voices side by side across metadata, marks, notes, and audio. Build an audition queue with shuffle, reorder, remove, queue playback, and continuous preview.`]
@@ -4673,8 +4673,8 @@ function openWhatsNew() {
     ['Workspaces and organization', [
       ['Casting board', `Four drag-and-drop columns mirror the review stages. See live counts, priority pills, notes, tags, and quick actions; load more per column; open Review directly from the board.`],
       ['Review room', `A full-screen sequence built for focused decisions. It includes a large waveform, status and priority controls, eight mark buttons, notes, tags, collections, similar voices, cross-book variants, and queue/compare actions.`],
-      ['Voice map', `The whole library is projected deterministically by tone and texture, with hash-based jitter so dense areas remain readable. Color by manifest, tone, or gender; hover for a name; click for a quick peek; jump to a random voice.`],
-      ['Insights dashboard', `Analyze the current view or the full library: coverage, review funnel, status and priority totals, tone DNA radar, manifest/gender/age distributions, tone × manifest heatmap, thin combinations, data health, collections, and casting action totals.`],
+      ['Voice map', `The whole library is projected deterministically by tone and texture, with hash-based jitter so dense areas remain readable. Color by novel, tone, or gender; hover for a name; click for a quick peek; jump to a random voice.`],
+      ['Insights dashboard', `Analyze the current view or the full library: coverage, review funnel, status and priority totals, tone DNA radar, novel/gender/age distributions, tone × novel heatmap, thin combinations, data health, collections, and casting action totals.`],
       ['Collections and tags', `Create color-coded collections for roles or projects and custom tags for your own taxonomy. Add from a card, context menu, or bulk bar; filter with collection: and tag:; include them in exports.`],
       ['Bulk selection and context menu', `Select visible voices, select all, or invert, then apply status, priority, tags, collections, compare, queue, or CSV export in one pass. Right-click any card for quick single-voice actions.`],
       ['Focus and workspace flow', `Switch between Library, Board, Map, and Insights without losing filters. Focus mode hides navigation and sidebars for a clean catalog; Review and Blind modes are available from every workspace.`]
@@ -4688,7 +4688,7 @@ function openWhatsNew() {
       ['Casting report', `Preview a printable landscape report for the current view or selection with summary counts, status, priority, marks, notes, tags, collections, and filenames. Download the HTML or print it to PDF.`],
       ['CSV and JSON', `Export the current filtered view as a spreadsheet or a structured JSON file. Every row includes catalog metadata plus status, priority, custom tags, collections, marks, note, filename, description, and sample.`],
       ['Marks export and import', `Export stars, circles, logic, and exclusions as portable JSON. Import the file later to merge the mark set back into the studio.`],
-      ['Audio downloads', `Package filtered, marked, starred, circled, or twice-marked preview WAVs into ZIP folders organized by manifest, or download a single preview from its context menu. Files are read from the existing preview library; nothing is copied into the catalog.`],
+      ['Audio downloads', `Package filtered, marked, starred, circled, or twice-marked preview WAVs into ZIP folders organized by novel, or download a single preview from its context menu. Files are read from the existing preview library; nothing is copied into the catalog.`],
       ['Backup, restore, and erase', `Save every studio record and preference in one JSON backup. Restore it later, or erase this studio's local data from Settings while leaving the voice files and other pages untouched.`],
       ['Local and read-only', `The catalog and WAVs are never modified. All marks, notes, tags, collections, views, queue, and preferences live only in this browser; the page makes no uploads, no server writes, and no external AI calls.`]
     ]]
