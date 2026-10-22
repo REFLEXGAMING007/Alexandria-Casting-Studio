@@ -402,6 +402,8 @@ a{color:inherit}
 .empty h3{margin:0 0 5px;font-size:16px}
 .empty p{margin:0 0 12px;font-size:11px;color:var(--muted)}
 .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px 0;font-size:9px;color:var(--dim)}
+.pager-controls{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.pager-page{font:8px ui-monospace,Consolas,monospace;color:var(--dim);white-space:nowrap;padding:0 2px}
 .main-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:10px;border-top:1px solid var(--line);font-size:8px;color:var(--dim)}
 .main-footer a{color:var(--muted)}
 .main-footer a:hover{color:var(--accent)}
@@ -869,7 +871,17 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{an
 /* settings */
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .settings-group{padding:9px;border:1px solid var(--line);border-radius:9px;background:rgba(148,163,184,.025)}
+.settings-group.wide{grid-column:1/-1}
 .settings-group h3{margin:0 0 7px;font-size:8px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.setting-label{font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin:9px 0 4px}
+.load-mode-switch{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.load-mode-option{position:relative;display:flex;align-items:flex-start;gap:6px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(148,163,184,.03);cursor:pointer;min-width:0}
+.load-mode-option input{position:absolute;opacity:0;pointer-events:none}
+.load-knob{width:10px;height:10px;border-radius:50%;border:1px solid var(--line-strong);background:rgba(148,163,184,.12);flex:0 0 auto;margin-top:2px}
+.load-mode-option b{display:block;font-size:9px;font-weight:700;color:var(--text);white-space:nowrap}
+.load-mode-option small{display:block;font-size:7.5px;line-height:1.35;color:var(--dim);margin-top:1px}
+.load-mode-option:has(input:checked){border-color:rgba(94,234,212,.38);background:rgba(94,234,212,.08)}
+.load-mode-option:has(input:checked) .load-knob{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 3px rgba(94,234,212,.12)}
 .swatches{display:flex;gap:5px;flex-wrap:wrap}
 .swatch{width:23px;height:23px;border-radius:7px;border:2px solid transparent;background:var(--sw);cursor:pointer}
 .swatch.active{border-color:var(--text);box-shadow:0 0 0 2px var(--bg),0 0 12px var(--sw)}
@@ -953,6 +965,7 @@ body.focus-mode #focusExit{display:flex}
   .screening-bar{padding:8px 12px}
   .screening-footer{position:sticky;bottom:0;z-index:2}
   .settings-grid{grid-template-columns:1fr}
+  .load-mode-switch{grid-template-columns:1fr 1fr}
   .insights-board{display:flex;flex-direction:column}
   .insights-card{width:100%}
   .board{grid-template-columns:1fr;overflow:visible}
@@ -1234,7 +1247,12 @@ body.focus-mode #focusExit{display:flex}
       </div>
       <div class="pager" id="pager" hidden>
         <span id="pagerText"></span>
-        <button class="btn small" data-action="load-more" id="loadMoreBtn">Load more</button>
+        <div class="pager-controls">
+          <button class="btn small" data-action="page-prev" id="pagePrevBtn" hidden>← Previous</button>
+          <span class="pager-page" id="pagerPage" hidden></span>
+          <button class="btn small" data-action="page-next" id="pageNextBtn" hidden>Next →</button>
+          <button class="btn small" data-action="load-more" id="loadMoreBtn">Load more</button>
+        </div>
       </div>
     </section>
 
@@ -1977,7 +1995,8 @@ const STATUS = {
 const LS_KEY = 'alexandria_voice_studio_v4';
 const V2_KEY = 'alexandria_voice_studio_v1';
 const OLD_MARKS_KEY = 'alexandria_voice_browser_marks_v2';
-const PAGE_SIZE = 24;
+const DEFAULT_PAGE_SIZE = 48;
+const LOAD_MODES = ['load-more', 'scroll', 'pages', 'all'];
 const FACETS = [
   { key: 'manifest', label: 'Novel', order: MANIFEST_ORDER },
   { key: 'gender', label: 'Gender', order: GENDER_ORDER },
@@ -2082,7 +2101,8 @@ const state = {
   reviewOpen: false,
   settings: {
     accent: 'teal', reduceMotion: false, autoAdvance: true,
-    volume: 0.9, rate: 1, muted: false, confirmDestructive: true
+    volume: 0.9, rate: 1, muted: false, confirmDestructive: true,
+    pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more'
   },
   view: 'cards',
   sort: 'name',
@@ -2094,11 +2114,28 @@ const state = {
   continuous: false,
   continuousLength: '3',
   continuousCustom: '15',
-  visibleCount: PAGE_SIZE,
+  visibleCount: DEFAULT_PAGE_SIZE,
   facetExpanded: { texture: false, tone: false },
   collapsed: {},
   rows: []
 };
+
+function pageSize() {
+  const size = Number(state.settings.pageSize);
+  return Number.isFinite(size) ? clamp(Math.round(size), 1, 1000) : DEFAULT_PAGE_SIZE;
+}
+function libraryPage() {
+  const rows = state.rows;
+  const mode = state.settings.loadMode;
+  const size = pageSize();
+  if (mode === 'all') return { mode, size, page: 0, pageCount: 1, shown: rows };
+  if (mode === 'pages') {
+    const pageCount = Math.max(1, Math.ceil(rows.length / size));
+    const page = clamp(Math.floor((Math.max(1, state.visibleCount) - 1) / size), 0, pageCount - 1);
+    return { mode, size, page, pageCount, shown: rows.slice(page * size, page * size + size) };
+  }
+  return { mode, size, page: 0, pageCount: 1, shown: rows.slice(0, state.visibleCount) };
+}
 
 let audio = new Audio();
 audio.preload = 'metadata';
@@ -2107,6 +2144,7 @@ let isPlaying = false;
 let clipTimer = null;
 let loop = false;
 let playContext = null;
+let loadMoreObserver = null;
 let modalKind = null;
 let paletteItems = [];
 let paletteIndex = 0;
@@ -2283,8 +2321,11 @@ function hydrate() {
       if (Number.isFinite(s.rate)) state.settings.rate = [0.75, 1, 1.25, 1.5, 2].includes(s.rate) ? s.rate : 1;
       state.settings.muted = !!s.muted;
       state.settings.confirmDestructive = s.confirmDestructive !== false;
+      if (Number.isFinite(s.pageSize)) state.settings.pageSize = clamp(Math.round(s.pageSize), 1, 1000);
+      if (LOAD_MODES.includes(s.loadMode)) state.settings.loadMode = s.loadMode;
     }
   }
+  state.visibleCount = pageSize();
   state.appliedCircleExclusions = { ...state.circleExclusions };
   for (const c of COLORS) state.appliedCircleMarks[c] = new Set(state.marks.circles[c]);
 }
@@ -2839,7 +2880,8 @@ function tableRowHtml(v) {
 }
 function renderResults() {
   const rows = state.rows;
-  const shown = rows.slice(0, state.visibleCount);
+  const view = libraryPage();
+  const shown = view.shown;
   const grid = $('grid');
   const table = $('tableWrap');
   const empty = $('empty');
@@ -2882,10 +2924,27 @@ function renderResults() {
   }
   if (pager) {
     pager.hidden = !rows.length;
-    const from = rows.length ? 1 : 0;
-    const to = Math.min(shown.length, rows.length);
-    if ($('pagerText')) $('pagerText').textContent = `Showing ${fmt(from)}–${fmt(to)} of ${fmt(rows.length)} voices`;
-    if ($('loadMoreBtn')) $('loadMoreBtn').hidden = shown.length >= rows.length;
+    const hasMore = shown.length < rows.length;
+    const from = rows.length ? (view.mode === 'pages' ? view.page * view.size + 1 : 1) : 0;
+    const to = rows.length ? (view.mode === 'pages' ? view.page * view.size + shown.length : Math.min(shown.length, rows.length)) : 0;
+    if ($('pagerText')) {
+      $('pagerText').textContent = view.mode === 'all'
+        ? `Showing all ${fmt(rows.length)} voices`
+        : `Showing ${fmt(from)}–${fmt(to)} of ${fmt(rows.length)} voices${view.mode === 'scroll' && hasMore ? ' · scroll to load more' : ''}`;
+    }
+    if ($('loadMoreBtn')) $('loadMoreBtn').hidden = view.mode !== 'load-more' || !hasMore;
+    if ($('pagePrevBtn')) {
+      $('pagePrevBtn').hidden = view.mode !== 'pages';
+      $('pagePrevBtn').disabled = view.page <= 0;
+    }
+    if ($('pageNextBtn')) {
+      $('pageNextBtn').hidden = view.mode !== 'pages';
+      $('pageNextBtn').disabled = view.page + 1 >= view.pageCount;
+    }
+    if ($('pagerPage')) {
+      $('pagerPage').hidden = view.mode !== 'pages';
+      $('pagerPage').textContent = `Page ${fmt(view.page + 1)} of ${fmt(view.pageCount)}`;
+    }
   }
   syncPlayingUI();
 }
@@ -3313,7 +3372,18 @@ function applySettings() {
 function setSetting(key, value) {
   if (key === 'volume') state.settings.volume = clamp(Number(value), 0, 1);
   else if (key === 'rate') state.settings.rate = Number(value) || 1;
-  else state.settings[key] = value;
+  else if (key === 'pageSize') {
+    state.settings.pageSize = clamp(Math.round(Number(value) || DEFAULT_PAGE_SIZE), 1, 1000);
+    state.visibleCount = pageSize();
+    persist(); applySettings(); render();
+    return;
+  } else if (key === 'loadMode') {
+    if (!LOAD_MODES.includes(value)) return;
+    state.settings.loadMode = value;
+    state.visibleCount = pageSize();
+    persist(); applySettings(); render();
+    return;
+  } else state.settings[key] = value;
   persist();
   applySettings();
 }
@@ -3384,7 +3454,7 @@ function toggleSelected(id) {
   renderDock();
 }
 function selectAllVisible() {
-  for (const v of state.rows.slice(0, state.visibleCount)) state.selected.add(v.id);
+  for (const v of libraryPage().shown) state.selected.add(v.id);
   render();
 }
 function invertSelection() {
@@ -3533,7 +3603,7 @@ function deleteCollection(id) {
 }
 function setCollectionView(id) {
   state.collectionView = state.collectionView === id ? null : id;
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   persist(); render(); writeUrlState();
   const col = collectionById(state.collectionView);
   if (col) showToast(`Showing “${col.name}” (${col.ids.length} voices).`, 'info');
@@ -3992,6 +4062,19 @@ function openSettings() {
       <div class="setting-row"><span>Mute audio</span><input type="checkbox" data-setting="muted" ${s.muted ? 'checked' : ''}></div>
       <div class="mini-note" style="margin-top:8px">Playback speed and volume apply to every preview. Auto-advance controls the queue and continuous playback.</div>
     </div>
+    <div class="settings-group wide"><h3>Voice library loading</h3>
+      <div class="setting-row"><span>Voices per batch</span><input type="number" min="1" max="1000" step="1" value="${s.pageSize}" data-setting="pageSize" aria-label="Voices per batch"></div>
+      <div class="setting-label">Load behavior</div>
+      <div class="load-mode-switch" role="radiogroup" aria-label="Voice library loading behavior">
+        ${[
+          ['load-more', 'Load more', '1 · Wait for button'],
+          ['scroll', 'Auto-load on scroll', '2 · At the bottom'],
+          ['pages', 'Page controls', '3 · Previous / next'],
+          ['all', 'Show all voices', '4 · Full result list']
+        ].map(([value, title, desc]) => `<label class="load-mode-option"><input type="radio" name="loadMode" value="${value}" data-setting="loadMode" ${s.loadMode === value ? 'checked' : ''}><span class="load-knob"></span><span><b>${title}</b><small>${desc}</small></span></label>`).join('')}
+      </div>
+      <div class="mini-note" style="margin-top:8px">Voices per batch sets the initial library count and every load-more step or page. Default 48. Show all renders the complete filtered result list.</div>
+    </div>
     <div class="settings-group"><h3>Voice catalog</h3>
       <div class="mini-note" id="catalogSourceText" style="margin-bottom:6px">Catalog status…</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn ghost" data-action="choose-catalog-folder">Choose folder</button><button class="btn ghost" data-action="reload-catalog">Refresh scan</button><button class="btn ghost" data-action="open-catalog-help">How it works</button></div>
@@ -4013,8 +4096,9 @@ function openSettings() {
   if (source) source.textContent = catalogSourceText();
 }
 function resetSettings() {
-  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true };
-  persist(); applySettings(); openSettings();
+  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more' };
+  state.visibleCount = pageSize();
+  persist(); applySettings(); openSettings(); render();
   showToast('Settings reset.', 'info');
 }
 function openEraseState() {
@@ -4039,14 +4123,14 @@ function eraseStudioData() {
   state.workspace = 'library'; state.mapMode = 'manifest';
   state.blind = false; state.focus = false; state.selectMode = false; state.selected.clear();
   state.boardLimits = {}; state.reviewIds = []; state.reviewIndex = 0; state.reviewOpen = false;
-  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true };
+  state.settings = { accent: 'teal', reduceMotion: false, autoAdvance: true, volume: 0.9, rate: 1, muted: false, confirmDestructive: true, pageSize: DEFAULT_PAGE_SIZE, loadMode: 'load-more' };
   state.view = 'cards'; state.sort = 'name'; state.density = 3;
   state.hideDesc = false; state.hideSample = false; state.hideTags = false;
   state.theme = 'dark'; state.continuous = false; state.continuousLength = '3'; state.continuousCustom = '15';
   state.search = ''; state.manifests.clear(); state.genders.clear(); state.ages.clear();
   state.textures.clear(); state.tones.clear(); state.statuses.clear(); state.prioritiesFilter.clear();
   state.tagsFilter.clear(); state.qualities.clear(); state.collectionView = null;
-  state.visibleCount = PAGE_SIZE; state.facetExpanded = { texture: false, tone: false }; state.collapsed = {};
+  state.visibleCount = pageSize(); state.facetExpanded = { texture: false, tone: false }; state.collapsed = {};
   undoStack = []; redoStack = [];
   playContext = null; loop = false;
   clearClipTimer();
@@ -4852,7 +4936,7 @@ function applyFilters(snapshot) {
   state.circleExclusions = Object.fromEntries(COLORS.map(c => [c, excluded.has(c)]));
   state.appliedCircleExclusions = { ...state.circleExclusions };
   for (const c of COLORS) state.appliedCircleMarks[c] = new Set(state.marks.circles[c]);
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   if ($('search')) $('search').value = state.search;
 }
 function saveCurrentView() {
@@ -4898,7 +4982,7 @@ function toggleFacet(facet, value) {
   const set = facetSet(facet);
   if (!set) return;
   if (set.has(value)) set.delete(value); else set.add(value);
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   render();
   writeUrlState();
 }
@@ -4915,7 +4999,7 @@ function clearOne(clear, facet, value) {
     for (const c of COLORS) state.appliedCircleMarks[c] = new Set();
   }
   else if (clear === 'facet' && facet) facetSet(facet)?.delete(value);
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   persist();
   render();
   writeUrlState();
@@ -4931,7 +5015,7 @@ function clearAll() {
   state.circleExclusions = emptyExclusions();
   state.appliedCircleExclusions = emptyExclusions();
   for (const c of COLORS) state.appliedCircleMarks[c] = new Set();
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   if ($('search')) $('search').value = '';
   if ($('mobileSearch')) $('mobileSearch').value = '';
   persist();
@@ -4954,7 +5038,7 @@ function setView(view) {
 }
 function setSort(value) {
   state.sort = value;
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   persist();
   render();
   writeUrlState();
@@ -4970,8 +5054,32 @@ function randomVoice() {
   showToast(`Random pick: ${voiceLabel(v)}`, 'info');
 }
 function loadMore() {
-  state.visibleCount += PAGE_SIZE;
+  if (state.settings.loadMode === 'pages' || state.settings.loadMode === 'all') return;
+  if (state.visibleCount >= state.rows.length) return;
+  state.visibleCount = Math.min(state.rows.length, state.visibleCount + pageSize());
   renderResults();
+}
+function changePage(delta) {
+  if (state.settings.loadMode !== 'pages') return;
+  const page = libraryPage();
+  const next = clamp(page.page + delta, 0, page.pageCount - 1);
+  if (next === page.page) return;
+  state.visibleCount = (next + 1) * pageSize();
+  renderResults();
+  const target = $('workspace-library');
+  if (target) target.scrollIntoView({ behavior: state.settings.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+function setupInfiniteLoader() {
+  const pager = $('pager');
+  if (!pager || !('IntersectionObserver' in window)) return;
+  loadMoreObserver = new IntersectionObserver(entries => {
+    if (!entries.some(entry => entry.isIntersecting)) return;
+    if (state.workspace !== 'library' || state.settings.loadMode !== 'scroll') return;
+    if (modalKind || state.reviewOpen || !state.rows.length) return;
+    if (state.visibleCount >= state.rows.length) return;
+    loadMore();
+  }, { rootMargin: '0px 0px 300px 0px' });
+  loadMoreObserver.observe(pager);
 }
 function toggleMark(id, kind, color) {
   if (kind === 'stars' && state.starsLocked) { showToast('Stars are locked. Unlock them in the marks panel.', 'warn'); return; }
@@ -4989,7 +5097,7 @@ function toggleMark(id, kind, color) {
 function setMarkView(kind, color) {
   if (kind === 'stars') state.starView = state.starView === color ? null : color;
   else state.circleView = state.circleView === color ? null : color;
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   persist();
   render();
   writeUrlState();
@@ -4998,7 +5106,7 @@ function refreshExclusions() {
   state.appliedCircleExclusions = { ...state.circleExclusions };
   for (const c of COLORS) state.appliedCircleMarks[c] = new Set(state.marks.circles[c]);
   persist();
-  state.visibleCount = PAGE_SIZE;
+  state.visibleCount = pageSize();
   render();
   writeUrlState();
   showToast('Circle exclusions applied.', 'info');
@@ -5245,6 +5353,12 @@ function handleAction(el) {
     case 'load-more':
       loadMore();
       break;
+    case 'page-prev':
+      changePage(-1);
+      break;
+    case 'page-next':
+      changePage(1);
+      break;
     case 'random':
       randomVoice();
       break;
@@ -5399,7 +5513,7 @@ function handleAction(el) {
       if (el.dataset.value) {
         state.qualities = new Set([el.dataset.value]);
         state.workspace = 'library';
-        state.visibleCount = PAGE_SIZE;
+        state.visibleCount = pageSize();
         render(); writeUrlState();
       }
       break;
@@ -5408,7 +5522,7 @@ function handleAction(el) {
         state.search = el.dataset.value;
         if ($('search')) $('search').value = state.search;
         if ($('mobileSearch')) $('mobileSearch').value = state.search;
-        state.visibleCount = PAGE_SIZE;
+        state.visibleCount = pageSize();
         render(); writeUrlState();
       }
       break;
@@ -5416,7 +5530,7 @@ function handleAction(el) {
       state.search = el.dataset.value || '';
       if ($('search')) $('search').value = state.search;
       if ($('mobileSearch')) $('mobileSearch').value = state.search;
-      state.visibleCount = PAGE_SIZE;
+      state.visibleCount = pageSize();
       render(); writeUrlState(); rememberSearch(state.search);
       break;
     case 'board-more':
@@ -5603,6 +5717,7 @@ function handleChange(e) {
     const key = target.dataset.setting;
     const value = target.type === 'checkbox' ? target.checked : target.value;
     setSetting(key, value);
+    if (key === 'pageSize') target.value = state.settings.pageSize;
   } else if (target.id === 'mapMode') {
     state.mapMode = target.value;
     persist(); renderMap();
@@ -5716,7 +5831,7 @@ function bindEvents() {
   if (search) search.addEventListener('input', debounce(() => {
     state.search = search.value;
     if ($('mobileSearch')) $('mobileSearch').value = state.search;
-    state.visibleCount = PAGE_SIZE;
+    state.visibleCount = pageSize();
     render();
     writeUrlState();
   }, 110));
@@ -5724,7 +5839,7 @@ function bindEvents() {
   if (mobileSearch) mobileSearch.addEventListener('input', debounce(() => {
     state.search = mobileSearch.value;
     if (search) search.value = state.search;
-    state.visibleCount = PAGE_SIZE;
+    state.visibleCount = pageSize();
     render();
     writeUrlState();
   }, 110));
@@ -5862,6 +5977,7 @@ function bindEvents() {
     }
     if (readUrlState()) render();
   });
+  setupInfiniteLoader();
 }
 
 let catalogBooted = false;
