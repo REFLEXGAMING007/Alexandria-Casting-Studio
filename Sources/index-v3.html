@@ -3887,6 +3887,14 @@ function updateMapViewBox() {
   const h = 620 / mapZoom;
   svg.setAttribute('viewBox', `${mapPan.x} ${mapPan.y} ${w} ${h}`);
 }
+function setMapZoom(newZoom) {
+  const cx = mapPan.x + (1000 / mapZoom) / 2;
+  const cy = mapPan.y + (620 / mapZoom) / 2;
+  mapZoom = clamp(newZoom, 0.5, 10);
+  mapPan.x = cx - (1000 / mapZoom) / 2;
+  mapPan.y = cy - (620 / mapZoom) / 2;
+  updateMapViewBox();
+}
 function resetMapZoom() {
   mapZoom = 1;
   mapPan = { x: 0, y: 0 };
@@ -5616,12 +5624,10 @@ function handleAction(el) {
       setSort('priority');
       break;
     case 'map-zoom-in':
-      mapZoom = clamp(mapZoom * 1.25, 0.5, 10);
-      updateMapViewBox();
+      setMapZoom(mapZoom * 1.25);
       break;
     case 'map-zoom-out':
-      mapZoom = clamp(mapZoom / 1.25, 0.5, 10);
-      updateMapViewBox();
+      setMapZoom(mapZoom / 1.25);
       break;
     case 'map-zoom-reset':
       resetMapZoom();
@@ -5957,8 +5963,7 @@ function bindEvents() {
     voiceMap.addEventListener('wheel', e => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.12 : 0.89;
-      mapZoom = clamp(mapZoom * factor, 0.5, 10);
-      updateMapViewBox();
+      setMapZoom(mapZoom * factor);
     }, { passive: false });
     let mapDragging = false, mapStartX = 0, mapStartY = 0, mapStartPanX = 0, mapStartPanY = 0;
     voiceMap.addEventListener('pointerdown', e => {
