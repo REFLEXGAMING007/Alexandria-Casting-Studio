@@ -4217,7 +4217,7 @@ function renderMap() {
     <text x="970" y="304" class="map-label" text-anchor="end">Intense / commanding</text>
     <text x="506" y="38" class="map-label">Playful</text>
     <text x="506" y="594" class="map-label">Formal</text>
-    ${points.map(p => `<circle class="map-dot" data-id="${esc(p.v.id)}" data-action="peek" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(1)}" fill="${p.color}" fill-opacity="${priorityOf(p.v.id) === 'high' ? '0.92' : '0.58'}" stroke="${p.color}" stroke-opacity=".4">${state.blind ? '' : `<title>${esc(p.v.name)} · ${esc(p.v.manifestTag || '')} · ${esc((p.v.tone || []).slice(0, 4).join(', ') || 'no tone tags')}</title>`}</circle>`).join('')}
+    ${points.map(p => `<circle class="map-dot" data-id="${esc(p.v.id)}" data-action="peek" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(1)}" fill="${p.color}" fill-opacity="${priorityOf(p.v.id) === 'high' ? '0.92' : '0.58'}" stroke="${p.color}" stroke-opacity=".4">${state.blind ? '' : `<title>${esc(p.v.name)} · ${esc(p.v.manifestTag || '')} · ${esc((p.v.tone || []).slice(0, 5).join(', ') || 'no tone tags')}</title>`}</circle>`).join('')}
   `;
   let legend = [];
   if (state.mapMode === 'manifest') legend = MANIFEST_ORDER.map(m => ({ label: m, color: SOURCE_COLORS[m] }));
