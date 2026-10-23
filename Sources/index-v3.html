@@ -3595,7 +3595,7 @@ function coreSnapshot() {
 function pushHistory(label = 'change') {
   if (restoring) return;
   undoStack.push({ label, data: coreSnapshot() });
-  if (undoStack.length > 45) undoStack.shift();
+  if (undoStack.length > 100) undoStack.shift();
   redoStack = [];
   updateUndoButtons();
 }
