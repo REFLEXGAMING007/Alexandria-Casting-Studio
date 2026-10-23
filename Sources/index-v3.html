@@ -205,6 +205,9 @@ a{color:inherit}
 .chip.active{background:rgba(94,234,212,.13);border-color:rgba(94,234,212,.35);color:var(--accent)}
 .chip .chip-count{font-size:8px;color:var(--dim);font-variant-numeric:tabular-nums}
 .chip.active .chip-count{color:rgba(94,234,212,.75)}
+.chip.excluded{background:rgba(248,113,113,.11);border-color:rgba(248,113,113,.32);color:var(--danger);text-decoration:line-through;text-decoration-thickness:1px}
+.chip.excluded .chip-count{color:rgba(248,113,113,.8)}
+.chip.excluded:hover{background:rgba(248,113,113,.18);color:#fca5a5}
 .facet-more{border:0;background:transparent;color:var(--accent);font-size:9px;padding:3px 2px;margin-top:1px}
 .facet-more:hover{text-decoration:underline}
 
@@ -295,6 +298,8 @@ a{color:inherit}
 .active-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid rgba(94,234,212,.22);border-radius:6px;background:rgba(94,234,212,.07);color:var(--accent);font-size:8.5px;max-width:320px}
 .active-chip .x{color:var(--accent);opacity:.65;font-size:10px;padding:0 1px}
 .active-chip:hover .x{opacity:1}
+.active-chip.excluded{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.08);color:var(--danger)}
+.active-chip.excluded .x{color:var(--danger)}
 .clear-filters{border:0;background:transparent;color:var(--dim);font-size:8px;text-decoration:underline;padding:2px 4px}
 .clear-filters:hover{color:var(--danger)}
 
@@ -2104,6 +2109,10 @@ const state = {
   prioritiesFilter: new Set(),
   tagsFilter: new Set(),
   qualities: new Set(),
+  facetExcludes: {
+    manifest: new Set(), gender: new Set(), age: new Set(), texture: new Set(), tone: new Set(),
+    status: new Set(), priority: new Set(), tag: new Set(), quality: new Set()
+  },
   collectionView: null,
   starView: null,
   circleView: null,
@@ -2245,6 +2254,10 @@ function facetSet(key) {
   if (key === 'quality') return state.qualities;
   return new Set();
 }
+function facetExcludeSet(key) {
+  if (!state.facetExcludes[key]) state.facetExcludes[key] = new Set();
+  return state.facetExcludes[key];
+}
 function facetValues(v, key) {
   if (key === 'manifest') return v.manifestTag ? [v.manifestTag] : [];
   if (key === 'gender') return v.genderClass ? [v.genderClass] : [];
@@ -2302,6 +2315,7 @@ function serialize() {
     smartViewOrder: [...state.smartViewOrder],
     sidebarSectionOrder: [...state.sidebarSectionOrder],
     facetOrder: [...state.facetOrder],
+    facetExcludes: Object.fromEntries(Object.entries(state.facetExcludes).map(([key, set]) => [key, [...set]])),
     prefs: {
       view: state.view, sort: state.sort, density: state.density,
       hideDesc: state.hideDesc, hideSample: state.hideSample, hideTags: state.hideTags,
@@ -2359,6 +2373,12 @@ function hydrate() {
     if (Array.isArray(data.smartViewOrder)) state.smartViewOrder = [...new Set(data.smartViewOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
 if (Array.isArray(data.sidebarSectionOrder)) state.sidebarSectionOrder = [...new Set(data.sidebarSectionOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
 if (Array.isArray(data.facetOrder)) state.facetOrder = [...new Set(data.facetOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
+if (data.facetExcludes && typeof data.facetExcludes === 'object') {
+  for (const key of Object.keys(state.facetExcludes)) {
+    const values = data.facetExcludes[key];
+    if (Array.isArray(values)) state.facetExcludes[key] = new Set(values.filter(v => typeof v === 'string' && v));
+  }
+}
     const p = data.prefs || {};
     if (['cards', 'table'].includes(p.view)) state.view = p.view;
     if (typeof p.sort === 'string') state.sort = p.sort;
@@ -2534,14 +2554,23 @@ function queryMatches(v) {
 }
 function matches(v, ignore = null) {
   if (ignore !== 'manifest' && state.manifests.size && !state.manifests.has(v.manifestTag)) return false;
+  if (ignore !== 'manifest' && state.facetExcludes.manifest.size && state.facetExcludes.manifest.has(v.manifestTag)) return false;
   if (ignore !== 'gender' && state.genders.size && !state.genders.has(v.genderClass)) return false;
+  if (ignore !== 'gender' && state.facetExcludes.gender.size && state.facetExcludes.gender.has(v.genderClass)) return false;
   if (ignore !== 'age' && state.ages.size && !(v.age || []).some(a => state.ages.has(a))) return false;
+  if (ignore !== 'age' && state.facetExcludes.age.size && (v.age || []).some(a => state.facetExcludes.age.has(a))) return false;
   if (ignore !== 'texture' && state.textures.size && !(v.texture || []).some(x => state.textures.has(x))) return false;
+  if (ignore !== 'texture' && state.facetExcludes.texture.size && (v.texture || []).some(x => state.facetExcludes.texture.has(x))) return false;
   if (ignore !== 'tone' && state.tones.size && !(v.tone || []).some(x => state.tones.has(x))) return false;
+  if (ignore !== 'tone' && state.facetExcludes.tone.size && (v.tone || []).some(x => state.facetExcludes.tone.has(x))) return false;
   if (ignore !== 'status' && state.statuses.size && !state.statuses.has(statusOf(v.id))) return false;
+  if (ignore !== 'status' && state.facetExcludes.status.size && state.facetExcludes.status.has(statusOf(v.id))) return false;
   if (ignore !== 'priority' && state.prioritiesFilter.size && !state.prioritiesFilter.has(priorityOf(v.id))) return false;
+  if (ignore !== 'priority' && state.facetExcludes.priority.size && state.facetExcludes.priority.has(priorityOf(v.id))) return false;
   if (ignore !== 'tag' && state.tagsFilter.size && !tagsOf(v.id).some(t => state.tagsFilter.has(t))) return false;
+  if (ignore !== 'tag' && state.facetExcludes.tag.size && tagsOf(v.id).some(t => state.facetExcludes.tag.has(t))) return false;
   if (ignore !== 'quality' && state.qualities.size && !qualityValues(v).some(q => state.qualities.has(q))) return false;
+  if (ignore !== 'quality' && state.facetExcludes.quality.size && qualityValues(v).some(q => state.facetExcludes.quality.has(q))) return false;
   if (state.collectionView) {
     const col = collectionById(state.collectionView);
     if (!col || !col.ids.includes(v.id)) return false;
@@ -2663,29 +2692,37 @@ function renderFacets() {
     if (!box) continue;
     const counts = tallyFacet(facet.key);
     const active = facetSet(facet.key);
+    const excluded = facetExcludeSet(facet.key);
     let values;
     if (facet.order) {
-      values = facet.order.filter(v => counts.has(v) || active.has(v));
+      values = facet.order.filter(v => counts.has(v) || active.has(v) || excluded.has(v));
     } else {
-      values = [...counts.keys()].filter(v => counts.get(v) > 0 || active.has(v));
+      values = [...new Set([...counts.keys(), ...active, ...excluded])].filter(v => counts.get(v) > 0 || active.has(v) || excluded.has(v));
       values.sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
       if (!state.facetExpanded[facet.key]) {
         const top = values.slice(0, facet.limit);
-        const activeExtra = values.filter(v => active.has(v) && !top.includes(v));
+        const activeExtra = values.filter(v => (active.has(v) || excluded.has(v)) && !top.includes(v));
         values = [...activeExtra, ...top];
       }
     }
     const collapsed = !!state.collapsed[facet.key];
     const shown = values.length;
     const more = facet.limit && !state.facetExpanded[facet.key] && shown > facet.limit;
+    const meta = [active.size ? active.size + ' active' : '', excluded.size ? excluded.size + ' excluded' : ''].filter(Boolean).join(' · ');
     const html = `
       <div class="facet-head" draggable="true" data-action="toggle-collapse" data-collapse="${facet.key}">
         <span class="f-name">${esc(facet.label)}</span>
-        <span class="f-count">${active.size ? active.size + ' active' : ''}</span>
+        <span class="f-count">${meta}</span>
         <span class="chev">${collapsed ? '▸' : '▾'}</span>
       </div>
       <div class="chips" ${collapsed ? 'hidden' : ''}>
-        ${values.length ? values.map(value => `<button class="chip ${active.has(value) ? 'active' : ''}" data-action="toggle-facet" data-facet="${facet.key}" data-value="${esc(value)}" title="${esc(facetLabel(facet.key, value))} — ${counts.get(value) || 0} voices">${esc(facetLabel(facet.key, value))}<span class="chip-count">${fmt(counts.get(value) || 0)}</span></button>`).join('') : `<span style="font-size:8px;color:var(--dim);line-height:1.5">${facet.key === 'tag' ? 'No custom tags yet. Add one from any card or the review room.' : 'No values in the current view.'}</span>`}
+        ${values.length ? values.map(value => {
+          const isIn = active.has(value);
+          const isEx = excluded.has(value);
+          const stateCls = isIn ? 'active' : isEx ? 'excluded' : '';
+          const stateText = isIn ? 'Included — click to exclude' : isEx ? 'Excluded — click to clear' : 'Click to include';
+          return `<button class="chip ${stateCls}" data-action="toggle-facet" data-facet="${facet.key}" data-value="${esc(value)}" aria-pressed="${isIn ? 'true' : isEx ? 'mixed' : 'false'}" title="${esc(facetLabel(facet.key, value))} — ${counts.get(value) || 0} voices · ${stateText}">${esc(facetLabel(facet.key, value))}<span class="chip-count">${fmt(counts.get(value) || 0)}</span></button>`;
+        }).join('') : `<span style="font-size:8px;color:var(--dim);line-height:1.5">${facet.key === 'tag' ? 'No custom tags yet. Add one from any card or the review room.' : 'No values in the current view.'}</span>`}
       </div>
       ${facet.limit && (counts.size > facet.limit || state.facetExpanded[facet.key]) ? `<button class="facet-more" data-action="expand-facet" data-facet="${facet.key}">${state.facetExpanded[facet.key] ? 'Show less' : 'Show all ' + fmt([...counts.keys()].filter(v => counts.get(v) > 0).length)}</button>` : ''}
     `;
@@ -2920,9 +2957,12 @@ function renderActiveFilters() {
   const chips = [];
   if (state.search.trim()) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="search" title="Clear search">Search: ${esc(state.search.length > 42 ? state.search.slice(0, 42) + '…' : state.search)}<span class="x">×</span></button>`);
   for (const facet of FACETS) {
+    const prefix = facet.key === 'manifest' || facet.key === 'status' ? facet.label.replace('Review ', '') + ': ' : '';
     for (const value of facetSet(facet.key)) {
-      const prefix = facet.key === 'manifest' || facet.key === 'status' ? facet.label.replace('Review ', '') + ': ' : '';
       chips.push(`<button class="active-chip" data-action="clear-one" data-clear="facet" data-facet="${facet.key}" data-value="${esc(value)}" title="Remove filter">${esc(prefix + facetLabel(facet.key, value))}<span class="x">×</span></button>`);
+    }
+    for (const value of facetExcludeSet(facet.key)) {
+      chips.push(`<button class="active-chip excluded" data-action="clear-one" data-clear="facet" data-facet="${facet.key}" data-value="${esc(value)}" title="Remove exclusion">− ${esc(prefix + facetLabel(facet.key, value))}<span class="x">×</span></button>`);
     }
   }
   if (state.collectionView) {
@@ -2961,6 +3001,7 @@ function renderInsightsStrip() {
       $('resultLine').textContent = 'No voice catalog loaded';
     } else {
       const active = [...state.manifests, ...state.genders, ...state.ages, ...state.textures, ...state.tones, ...state.statuses, ...state.prioritiesFilter, ...state.tagsFilter, ...state.qualities].length
+        + Object.values(state.facetExcludes).reduce((n, set) => n + set.size, 0)
         + (state.collectionView ? 1 : 0) + (state.starView ? 1 : 0) + (state.circleView ? 1 : 0)
         + (state.starLogic !== 'off' ? 1 : 0) + (state.circleLogic !== 'off' ? 1 : 0)
         + (!state.circleView && COLORS.some(c => state.appliedCircleExclusions[c]) ? 1 : 0);
@@ -4391,6 +4432,7 @@ function eraseStudioData() {
   state.search = ''; state.manifests.clear(); state.genders.clear(); state.ages.clear();
   state.textures.clear(); state.tones.clear(); state.statuses.clear(); state.prioritiesFilter.clear();
   state.tagsFilter.clear(); state.qualities.clear(); state.collectionView = null;
+  for (const set of Object.values(state.facetExcludes)) set.clear();
   state.visibleCount = pageSize(); state.facetExpanded = { texture: false, tone: false }; state.collapsed = {};
   undoStack = []; redoStack = [];
   playContext = null; loop = false;
@@ -5165,6 +5207,7 @@ function snapshotFilters() {
     manifests: [...state.manifests], genders: [...state.genders], ages: [...state.ages],
     textures: [...state.textures], tones: [...state.tones], statuses: [...state.statuses],
     priorities: [...state.prioritiesFilter], tags: [...state.tagsFilter], qualities: [...state.qualities],
+    facetExcludes: Object.fromEntries(Object.entries(state.facetExcludes).map(([key, set]) => [key, [...set]])),
     collection: state.collectionView || '',
     starView: state.starView || null, circleView: state.circleView || null,
     starLogic: state.starLogic, circleLogic: state.circleLogic,
@@ -5186,6 +5229,13 @@ function applyFilters(snapshot) {
   state.prioritiesFilter = new Set(snapshot.priorities || []);
   state.tagsFilter = new Set(snapshot.tags || []);
   state.qualities = new Set(snapshot.qualities || []);
+  const ex = snapshot.facetExcludes && typeof snapshot.facetExcludes === 'object' ? snapshot.facetExcludes : {};
+  for (const key of Object.keys(state.facetExcludes)) {
+    const values = Array.isArray(ex[key]) ? ex[key].filter(v => typeof v === 'string' && v) : [];
+    state.facetExcludes[key] = new Set(values);
+    const inc = facetSet(key);
+    for (const value of state.facetExcludes[key]) inc.delete(value);
+  }
   state.collectionView = snapshot.collection && collectionById(snapshot.collection) ? snapshot.collection : null;
   if (snapshot.sort) state.sort = snapshot.sort;
   if (snapshot.view) state.view = snapshot.view;
@@ -5243,7 +5293,30 @@ function deleteView(id) {
 function toggleFacet(facet, value) {
   const set = facetSet(facet);
   if (!set) return;
-  if (set.has(value)) set.delete(value); else set.add(value);
+  const excludes = facetExcludeSet(facet);
+  // Three-state cycle: neutral -> include -> exclude -> neutral
+  if (set.has(value)) {
+    set.delete(value);
+    excludes.add(value);
+  } else if (excludes.has(value)) {
+    excludes.delete(value);
+  } else {
+    excludes.delete(value);
+    set.add(value);
+  }
+  state.visibleCount = pageSize();
+  render();
+  writeUrlState();
+}
+function toggleFacetInclude(facet, value) {
+  const set = facetSet(facet);
+  if (!set) return;
+  if (set.has(value)) {
+    set.delete(value);
+  } else {
+    set.add(value);
+    facetExcludeSet(facet).delete(value);
+  }
   state.visibleCount = pageSize();
   render();
   writeUrlState();
@@ -5260,7 +5333,10 @@ function clearOne(clear, facet, value) {
     state.appliedCircleExclusions = emptyExclusions();
     for (const c of COLORS) state.appliedCircleMarks[c] = new Set();
   }
-  else if (clear === 'facet' && facet) facetSet(facet)?.delete(value);
+  else if (clear === 'facet' && facet) {
+    facetSet(facet)?.delete(value);
+    facetExcludeSet(facet).delete(value);
+  }
   state.visibleCount = pageSize();
   persist();
   render();
@@ -5271,6 +5347,7 @@ function clearAll() {
   state.manifests.clear(); state.genders.clear(); state.ages.clear();
   state.textures.clear(); state.tones.clear(); state.statuses.clear();
   state.prioritiesFilter.clear(); state.tagsFilter.clear(); state.qualities.clear();
+  for (const set of Object.values(state.facetExcludes)) set.clear();
   state.collectionView = null;
   state.starView = null; state.circleView = null;
   state.starLogic = 'off'; state.circleLogic = 'off';
@@ -5409,6 +5486,7 @@ function readUrlState() {
     manifests: getSet('m'), genders: getSet('g'), ages: getSet('a'),
     textures: getSet('tex'), tones: getSet('tone'), statuses: getSet('st'),
     priorities: getSet('pr'), tags: getSet('myt'), qualities: getSet('ql'),
+    facetExcludes: Object.fromEntries(Object.entries({ manifest: 'xm', gender: 'xg', age: 'xa', texture: 'xtex', tone: 'xtone', status: 'xst', priority: 'xpr', tag: 'xmyt', quality: 'xql' }).map(([key, param]) => [key, getSet(param)])),
     collection: p.get('col') || '',
     starView: p.get('sv') || null, circleView: p.get('cv') || null,
     starLogic: p.get('sl') || 'off', circleLogic: p.get('cl') || 'off',
@@ -5430,6 +5508,11 @@ function writeUrlState() {
   if (state.prioritiesFilter.size) p.set('pr', [...state.prioritiesFilter].join('|'));
   if (state.tagsFilter.size) p.set('myt', [...state.tagsFilter].join('|'));
   if (state.qualities.size) p.set('ql', [...state.qualities].join('|'));
+  const excludeParams = { manifest: 'xm', gender: 'xg', age: 'xa', texture: 'xtex', tone: 'xtone', status: 'xst', priority: 'xpr', tag: 'xmyt', quality: 'xql' };
+  for (const [key, param] of Object.entries(excludeParams)) {
+    const values = [...state.facetExcludes[key]];
+    if (values.length) p.set(param, values.join('|'));
+  }
   if (state.collectionView) p.set('col', state.collectionView);
   if (state.starView) p.set('sv', state.starView);
   if (state.circleView) p.set('cv', state.circleView);
@@ -5455,7 +5538,7 @@ function handleAction(el) {
     }
     case 'filter-tag': {
       const value = el.dataset.value;
-      if (value) toggleFacet(el.dataset.facet, value);
+      if (value) toggleFacetInclude(el.dataset.facet, value);
       break;
     }
     case 'clear-one':
@@ -5772,6 +5855,7 @@ function handleAction(el) {
     case 'apply-quality':
       if (el.dataset.value) {
         state.qualities = new Set([el.dataset.value]);
+        state.facetExcludes.quality.clear();
         state.workspace = 'library';
         state.visibleCount = pageSize();
         render(); writeUrlState();
