@@ -4097,7 +4097,7 @@ function loadWaveform(filename, target) {
 function boardCardHtml(v) {
   const st = statusOf(v.id);
   const pri = priorityOf(v.id);
-  const tags = [...tagsOf(v.id).slice(0, 2), ...(v.tone || []).slice(0, 2), ...(v.texture || []).slice(0, 1)];
+  const tags = [...tagsOf(v.id).slice(0, 3), ...(v.tone || []).slice(0, 2), ...(v.texture || []).slice(0, 2)];
   return `<div class="board-card" draggable="true" data-id="${esc(v.id)}" style="--source:${sourceColor(v.manifestTag)}">
     <div class="b-top"><span class="b-src">${esc(v.manifestTag || '—')}</span><span class="b-name"${titleAttr(v.name)}>${esc(v.name)}</span>${pri !== 'none' ? `<span class="priority-pill ${pri}">${PRIORITY_LABEL[pri]}</span>` : ''}</div>
     <div class="b-tags">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${noteOf(v.id) ? '<span title="Has note">✎ note</span>' : ''}</div>
@@ -4905,7 +4905,7 @@ function openSimilar(id, limit = 30, opts = {}) {
     ? `${visible >= total ? 'Showing all' : `Showing ${fmt(visible)} of`} ${fmt(total)} shared-trait matches · best first`
     : 'No shared-trait matches found';
   const list = total ? `<div class="similar-list">${shown.map(({ v: m, score }) => {
-    const tags = [...(m.tone || []).slice(0, 3), ...(m.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const tags = [...(m.tone || []).slice(0, 6), ...(m.texture || []).slice(0, 6)].map(t => `<span class="tag">${esc(t)}</span>`).join('');
     const strength = Math.max(5, Math.round((score / topScore) * 100));
     return `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div class="similar-main"><div class="similar-head"><div class="s-name">${esc(m.name)}</div><span class="similar-score">${score} pts</span></div><div class="s-meta">${esc([m.genderClass || '', (m.age || []).join(', ')].filter(Boolean).join(' · ') || '—')}</div><div class="similar-tags">${tags}</div><div class="similar-bar" title="${score} similarity points out of ${topScore}"><i style="width:${strength}%"></i></div></div><div class="similar-actions"><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button><button class="icon-btn small" data-action="queue" data-id="${esc(m.id)}" title="Queue">＋</button></div></div>`;
   }).join('')}</div>` : `<div class="similar-empty">No other voice shares any scored attributes with this one.</div>`;
