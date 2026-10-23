@@ -672,9 +672,9 @@ html[data-accent="lime"]{--accent:#bef264;--accent-2:#5eead4}
 .recent-searches button{border:0;background:rgba(148,163,184,.06);color:var(--dim);font-size:8px;padding:2px 5px;border-radius:4px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .recent-searches button:hover{background:rgba(94,234,212,.10);color:var(--accent)}
 .recent-search-row{display:inline-flex;align-items:stretch;max-width:170px}
-.recent-search-row .rs-del{max-width:20px;border-radius:4px 0 0 4px;padding:2px 4px;color:var(--dim)}
+.recent-search-row .rs-run{border-radius:4px 0 0 4px;max-width:150px}
+.recent-search-row .rs-del{max-width:20px;border-radius:0 4px 4px 0;padding:2px 4px;color:var(--dim)}
 .recent-search-row .rs-del:hover{background:rgba(248,113,113,.18);color:#fca5a5}
-.recent-search-row .rs-run{border-radius:0 4px 4px 0;max-width:150px}
 .collection-list{display:flex;flex-direction:column;gap:3px;padding:1px 0 2px}
 .collection-btn{display:flex;align-items:center;gap:6px;width:100%;padding:5px 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-size:9px;text-align:left}
 .collection-btn:hover{background:rgba(148,163,184,.08);color:var(--text)}
@@ -2325,7 +2325,7 @@ function serialize() {
     priorities: { ...state.priorities },
     customTags: Object.fromEntries(Object.entries(state.customTags).map(([id, tags]) => [id, [...tags]])),
     collections: state.collections.map(c => ({ ...c, ids: [...c.ids] })),
-    activity: state.activity.slice(0, 60),
+    activity: state.activity.slice(0, 100),
     recent: [...state.recent],
     recentSearches: [...state.recentSearches],
     queue: [...state.queue],
@@ -2396,7 +2396,7 @@ function hydrate() {
     const validCollections = new Set(state.collections.map(c => c.id));
     for (const id of [...state.collectionIncludes]) if (!validCollections.has(id)) state.collectionIncludes.delete(id);
     for (const id of [...state.collectionExcludes]) if (!validCollections.has(id)) state.collectionExcludes.delete(id);
-    if (Array.isArray(data.activity)) state.activity = data.activity.filter(a => a && a.text).slice(0, 60);
+    if (Array.isArray(data.activity)) state.activity = data.activity.filter(a => a && a.text).slice(0, 100);
     if (Array.isArray(data.recent)) state.recent = [...new Set(data.recent.filter(id => byId.has(id)))].slice(0, 12);
     if (Array.isArray(data.recentSearches)) state.recentSearches = [...new Set(data.recentSearches.map(String).filter(Boolean))].slice(0, 50);
     if (Array.isArray(data.queue)) state.queue = data.queue.filter(id => byId.has(id));
@@ -2944,7 +2944,7 @@ function reorderSidebarSection(sourceId, targetId, after) {
 function renderRecentSearches() {
   const box = $('recentSearches');
   if (!box) return;
-  box.innerHTML = state.recentSearches.slice(0, 20).map(q => `<span class="recent-search-row"><button class="rs-del" data-action="delete-recent-search" data-value="${esc(q)}" title="Remove this search" aria-label="Remove this search">×</button><button class="rs-run" data-action="apply-search" data-value="${esc(q)}" title="Run search again">↺ ${esc(q.length > 24 ? q.slice(0, 24) + '…' : q)}</button></span>`).join('');
+  box.innerHTML = state.recentSearches.slice(0, 20).map(q => `<span class="recent-search-row"><button class="rs-run" data-action="apply-search" data-value="${esc(q)}" title="Run search again">↺ ${esc(q.length > 24 ? q.slice(0, 24) + '…' : q)}</button><button class="rs-del" data-action="delete-recent-search" data-value="${esc(q)}" title="Remove this search" aria-label="Remove this search">×</button></span>`).join('');
 }
 function relativeTime(ts) {
   const delta = Math.max(0, Date.now() - Number(ts || 0));
@@ -3566,7 +3566,7 @@ let audioCtx = null;
 function addActivity(text, icon = '·') {
   if (restoring) return;
   state.activity.unshift({ t: Date.now(), text: String(text).slice(0, 160), icon });
-  state.activity = state.activity.slice(0, 60);
+  state.activity = state.activity.slice(0, 100);
   persist();
   renderActivity();
 }
@@ -3586,7 +3586,7 @@ function coreSnapshot() {
     priorities: { ...state.priorities },
     customTags: Object.fromEntries(Object.entries(state.customTags).map(([id, tags]) => [id, [...tags]])),
     collections: state.collections.map(c => ({ ...c, ids: [...c.ids] })),
-    queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), hiddenBuiltinViews: [...state.hiddenBuiltinViews], smartViewOrder: [...state.smartViewOrder], activity: state.activity.slice(0, 60), recent: [...state.recent]
+    queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), hiddenBuiltinViews: [...state.hiddenBuiltinViews], smartViewOrder: [...state.smartViewOrder], activity: state.activity.slice(0, 100), recent: [...state.recent]
   };
 }
 function pushHistory(label = 'change') {
