@@ -3121,8 +3121,8 @@ function cardHtml(v) {
   for (const t of tagsOf(v.id)) tags.push(tagHtml('tag', t, 'custom'));
   if (v.genderClass) tags.push(tagHtml('gender', v.genderClass, 'gender'));
   for (const age of (v.age || []).slice(0, 2)) tags.push(tagHtml('age', age, 'age'));
-  for (const tex of (v.texture || []).slice(0, 3)) tags.push(tagHtml('texture', tex, 'texture'));
-  for (const tone of (v.tone || []).slice(0, 5)) tags.push(tagHtml('tone', tone, 'tone'));
+  for (const tex of (v.texture || []).slice(0, 6)) tags.push(tagHtml('texture', tex, 'texture'));
+  for (const tone of (v.tone || []).slice(0, 6)) tags.push(tagHtml('tone', tone, 'tone'));
   const shown = tags.slice(0, 50);
   const extra = tags.length - shown.length;
   const note = noteOf(v.id);
@@ -4344,7 +4344,7 @@ function renderReview() {
   if ($('reviewSessionCount')) $('reviewSessionCount').textContent = fmt(total);
   if ($('reviewSource')) { $('reviewSource').textContent = `${v.manifestTag || '—'} · ${v.genderClass || '—'} · ${(v.age || []).join(' / ') || 'age not specified'}`; $('reviewSource').style.setProperty('--source', sourceColor(v.manifestTag)); }
   if ($('reviewName')) $('reviewName').textContent = v.name;
-  if ($('reviewTags')) $('reviewTags').innerHTML = [v.genderClass ? tagHtml('gender', v.genderClass, 'gender') : '', ...(v.age || []).map(a => tagHtml('age', a, 'age')), ...(v.texture || []).slice(0, 4).map(t => tagHtml('texture', t, 'texture')), ...(v.tone || []).slice(0, 6).map(t => tagHtml('tone', t, 'tone')), ...tagsOf(v.id).map(t => tagHtml('tag', t, 'custom'))].join('');
+  if ($('reviewTags')) $('reviewTags').innerHTML = [v.genderClass ? tagHtml('gender', v.genderClass, 'gender') : '', ...(v.age || []).map(a => tagHtml('age', a, 'age')), ...(v.texture || []).map(t => tagHtml('texture', t, 'texture')), ...(v.tone || []).map(t => tagHtml('tone', t, 'tone')), ...tagsOf(v.id).map(t => tagHtml('tag', t, 'custom'))].join('');
   if ($('reviewDesc')) $('reviewDesc').textContent = v.description || 'No description available.';
   if ($('reviewSample')) $('reviewSample').textContent = v.sample_text ? `“${v.sample_text}”` : '';
   if ($('reviewSample')) $('reviewSample').hidden = !v.sample_text;
@@ -4624,7 +4624,7 @@ function openPeek(id) {
       <div class="source-pill" style="--source:${sourceColor(v.manifestTag)};display:inline-flex">${esc(v.manifestTag || '—')}</div>
       <h2 class="peek-name" style="margin:5px 0 2px;font-size:24px;letter-spacing:-.04em">${esc(v.name)}</h2>
       <div class="peek-source" style="font-size:9px;color:var(--dim);margin-bottom:7px">${esc(v.genderClass || '—')} · ${esc((v.age || []).join(', ') || 'age not specified')} · ${STATUS[statusOf(v.id)].label}${priorityOf(v.id) !== 'none' ? ' · ' + PRIORITY_LABEL[priorityOf(v.id)] : ''}</div>
-      <div class="card-tags" style="margin-bottom:8px">${[v.genderClass ? tagHtml('gender', v.genderClass, 'gender') : '', ...(v.age || []).map(a => tagHtml('age', a, 'age')), ...(v.texture || []).map(t => tagHtml('texture', t, 'texture')), ...(v.tone || []).slice(0, 6).map(t => tagHtml('tone', t, 'tone')), ...tagsOf(id).map(t => tagHtml('tag', t, 'custom'))].join('')}</div>
+      <div class="card-tags" style="margin-bottom:8px">${[v.genderClass ? tagHtml('gender', v.genderClass, 'gender') : '', ...(v.age || []).map(a => tagHtml('age', a, 'age')), ...(v.texture || []).map(t => tagHtml('texture', t, 'texture')), ...(v.tone || []).map(t => tagHtml('tone', t, 'tone')), ...tagsOf(id).map(t => tagHtml('tag', t, 'custom'))].join('')}</div>
       <p class="card-desc" style="font-size:10px">${esc(v.description || 'No description.')}</p>
       ${v.sample_text ? `<blockquote class="card-sample">“${esc(v.sample_text)}”</blockquote>` : ''}
       <div class="review-wave-wrap" style="height:70px;margin:10px 0"><canvas id="peekWave" height="70"></canvas></div>
@@ -4677,7 +4677,7 @@ function openVariants(id) {
   if (!v) return;
   const group = duplicateGroups.get(nameKey(v)) || [v];
   const body = `<p>${state.blind ? `${group.length} voices share a normalized name across the loaded novels.` : `${group.length} voices share the normalized name <b style="color:var(--text)">${esc(v.name)}</b> across the loaded novels.`} Compare their age, tone, texture, and notes before casting.</p>
-    <div class="similar-list">${group.map(m => `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div style="min-width:0;flex:1"><div class="s-name">${esc(m.name)}</div><div class="s-meta">${esc(m.genderClass || '—')} · ${esc((m.age || []).join(', ') || '—')}</div><div class="similar-tags">${[...(m.tone || []).slice(0, 4), ...(m.texture || []).slice(0, 2)].map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div><span class="s-score">${STATUS[statusOf(m.id)].label}</span><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="peek" data-id="${esc(m.id)}" title="Peek">⌕</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button></div>`).join('')}</div>`;
+    <div class="similar-list">${group.map(m => `<div class="similar-item"><span class="t-source" style="--source:${sourceColor(m.manifestTag)}">${esc(m.manifestTag || '—')}</span><div style="min-width:0;flex:1"><div class="s-name">${esc(m.name)}</div><div class="s-meta">${esc(m.genderClass || '—')} · ${esc((m.age || []).join(', ') || '—')}</div><div class="similar-tags">${[...(m.tone || []).slice(0, 6), ...(m.texture || []).slice(0, 6)].map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div><span class="s-score">${STATUS[statusOf(m.id)].label}</span><button class="icon-btn small" data-action="play" data-id="${esc(m.id)}" title="Preview">▶</button><button class="icon-btn small" data-action="peek" data-id="${esc(m.id)}" title="Peek">⌕</button><button class="icon-btn small" data-action="compare" data-id="${esc(m.id)}" title="Compare">⇄</button></div>`).join('')}</div>`;
   openModal('variants', 'Cross-book variants', 'Deterministic duplicate-name grouping', body);
 }
 
@@ -6650,7 +6650,7 @@ function bindEvents() {
       const rect = shell.getBoundingClientRect();
       tip.innerHTML = state.blind
         ? '<b>Hidden voice</b><br><span style="color:var(--dim)">Identity hidden by blind audition</span>'
-        : `<b>${esc(v.name)}</b><br>${esc(v.manifestTag || '')} · ${esc(v.genderClass || '')}<br><span style="color:var(--dim)">${esc((v.tone || []).slice(0, 4).join(', ') || 'no tone tags')}</span>`;
+        : `<b>${esc(v.name)}</b><br>${esc(v.manifestTag || '')} · ${esc(v.genderClass || '')}<br><span style="color:var(--dim)">${esc((v.tone || []).slice(0, 5).join(', ') || 'no tone tags')}</span>`;
       tip.style.display = 'block';
       tip.style.left = Math.min(rect.width - 240, Math.max(4, e.clientX - rect.left + 12)) + 'px';
       tip.style.top = Math.max(4, e.clientY - rect.top + 12) + 'px';
