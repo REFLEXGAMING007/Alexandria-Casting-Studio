@@ -238,8 +238,11 @@ a{color:inherit}
 .mark-view{display:flex;align-items:center;gap:5px;padding:4px 5px;border-radius:6px;border:1px solid var(--line);background:rgba(148,163,184,.05);font-size:8px;color:var(--muted)}
 .mark-view:hover{border-color:var(--line-strong);color:var(--text)}
 .mark-view.active{border-color:var(--mark,var(--accent));background:rgba(94,234,212,.10);color:var(--text)}
+.mark-view.excluded{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.10);color:var(--text);text-decoration:line-through;text-decoration-color:rgba(248,113,113,.65)}
 .mark-view .mark-symbol{font-size:9px;color:var(--mark,var(--accent))}
 .mark-view b{margin-left:auto;font-size:8px;color:var(--dim)}
+.lock-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.lock-row .switch-row{padding:0;font-size:8px}
 .logic-row{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .logic-row label{display:flex;flex-direction:column;gap:2px;font-size:8px;color:var(--dim)}
 .logic-row select{padding:4px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--muted);font-size:9px;outline:none}
@@ -668,10 +671,16 @@ html[data-accent="lime"]{--accent:#bef264;--accent-2:#5eead4}
 .recent-searches:empty{display:none}
 .recent-searches button{border:0;background:rgba(148,163,184,.06);color:var(--dim);font-size:8px;padding:2px 5px;border-radius:4px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .recent-searches button:hover{background:rgba(94,234,212,.10);color:var(--accent)}
+.recent-search-row{display:inline-flex;align-items:stretch;max-width:170px}
+.recent-search-row .rs-del{max-width:20px;border-radius:4px 0 0 4px;padding:2px 4px;color:var(--dim)}
+.recent-search-row .rs-del:hover{background:rgba(248,113,113,.18);color:#fca5a5}
+.recent-search-row .rs-run{border-radius:0 4px 4px 0;max-width:150px}
 .collection-list{display:flex;flex-direction:column;gap:3px;padding:1px 0 2px}
 .collection-btn{display:flex;align-items:center;gap:6px;width:100%;padding:5px 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-size:9px;text-align:left}
 .collection-btn:hover{background:rgba(148,163,184,.08);color:var(--text)}
 .collection-btn.active{background:rgba(94,234,212,.08);border-color:rgba(94,234,212,.22);color:var(--accent)}
+.collection-btn.excluded{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.28);color:#fca5a5}
+.collection-btn.excluded .c-name{text-decoration:line-through;text-decoration-thickness:1px}
 .collection-btn .c-dot{width:7px;height:7px;border-radius:2px;flex:0 0 auto}
 .collection-btn .c-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .collection-btn .c-count{font-size:8px;color:var(--dim)}
@@ -690,6 +699,8 @@ html[data-accent="lime"]{--accent:#bef264;--accent-2:#5eead4}
 .health-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .health-btn{display:flex;align-items:center;justify-content:space-between;gap:3px;padding:4px 5px;border:1px solid var(--line);border-radius:5px;background:rgba(148,163,184,.03);color:var(--muted);font-size:8px;text-align:left}
 .health-btn:hover{border-color:var(--line-strong);color:var(--text)}
+.health-btn.active{border-color:rgba(94,234,212,.45);background:rgba(94,234,212,.10);color:var(--text)}
+.health-btn.excluded{border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.09);color:#fca5a5;text-decoration:line-through;text-decoration-thickness:1px}
 .health-btn b{font:9px ui-monospace,Consolas,monospace;color:var(--amber)}
 .health-btn.ok b{color:var(--good)}
 
@@ -1080,6 +1091,7 @@ body.focus-mode #focusExit{display:flex}
       <div class="side-head">
         <div class="side-title">Smart views</div>
         <span class="side-grip" draggable="true" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
+        <button class="btn ghost" data-action="reset-builtin-views" title="Restore deleted default views">Reset</button>
         <button class="btn ghost" data-action="save-view" title="Save the current filters as a view">+ Save</button>
       </div>
       <div class="side-body"><div class="view-list" id="smartViews"></div></div>
@@ -1529,7 +1541,7 @@ body.focus-mode #focusExit{display:flex}
 const CATALOG_ROOT = 'designed_voices/persona';
 const CATALOG_CACHE_KEY = 'alexandria_voice_catalog_v1';
 const CATALOG_CACHE_VERSION = 1;
-const CATALOG_CONCURRENCY = 20;
+const CATALOG_CONCURRENCY = 100;
 
 // Compact snapshot of the folder layout. It is only used when the page is
 // served over HTTP by a host that does not provide directory listings. When
@@ -2113,12 +2125,14 @@ const state = {
     manifest: new Set(), gender: new Set(), age: new Set(), texture: new Set(), tone: new Set(),
     status: new Set(), priority: new Set(), tag: new Set(), quality: new Set()
   },
-  collectionView: null,
-  starView: null,
-  circleView: null,
-  starLogic: 'off',
-  circleLogic: 'off',
+  collectionIncludes: new Set(),
+  collectionExcludes: new Set(),
+  starIncludes: new Set(),
+  starExcludes: new Set(),
+  circleIncludes: new Set(),
+  circleExcludes: new Set(),
   starsLocked: false,
+  circlesLocked: false,
   marks: { stars: markSet(), circles: markSet() },
   circleExclusions: emptyExclusions(),
   appliedCircleExclusions: emptyExclusions(),
@@ -2131,6 +2145,7 @@ const state = {
   queue: [],
   compare: [],
   savedViews: [],
+  hiddenBuiltinViews: [],
   smartViewOrder: [],
   sidebarSectionOrder: [],
   facetOrder: [],
@@ -2296,12 +2311,15 @@ function serialize() {
       stars: Object.fromEntries(COLORS.map(c => [c, [...state.marks.stars[c]]])),
       circles: Object.fromEntries(COLORS.map(c => [c, [...state.marks.circles[c]]]))
     },
-    starLogic: state.starLogic,
-    circleLogic: state.circleLogic,
     starsLocked: state.starsLocked,
-    starView: state.starView,
-    circleView: state.circleView,
+    circlesLocked: state.circlesLocked,
+    starIncludes: [...state.starIncludes],
+    starExcludes: [...state.starExcludes],
+    circleIncludes: [...state.circleIncludes],
+    circleExcludes: [...state.circleExcludes],
     circleExclusions: { ...state.circleExclusions },
+    collectionIncludes: [...state.collectionIncludes],
+    collectionExcludes: [...state.collectionExcludes],
     statuses: { ...state.statusesById },
     notes: { ...state.notes },
     priorities: { ...state.priorities },
@@ -2312,6 +2330,7 @@ function serialize() {
     recentSearches: [...state.recentSearches],
     queue: [...state.queue],
     savedViews: state.savedViews,
+    hiddenBuiltinViews: [...state.hiddenBuiltinViews],
     smartViewOrder: [...state.smartViewOrder],
     sidebarSectionOrder: [...state.sidebarSectionOrder],
     facetOrder: [...state.facetOrder],
@@ -2337,11 +2356,20 @@ function hydrate() {
       if (Array.isArray(data.marks?.stars?.[c])) state.marks.stars[c] = new Set(data.marks.stars[c]);
       if (Array.isArray(data.marks?.circles?.[c])) state.marks.circles[c] = new Set(data.marks.circles[c]);
     }
-    if (['off', 'include', 'exclude'].includes(data.starLogic)) state.starLogic = data.starLogic;
-    if (['off', 'include', 'exclude'].includes(data.circleLogic)) state.circleLogic = data.circleLogic;
     state.starsLocked = !!data.starsLocked;
-    if (COLORS.includes(data.starView)) state.starView = data.starView;
-    if (COLORS.includes(data.circleView)) state.circleView = data.circleView;
+    state.circlesLocked = !!data.circlesLocked;
+    const hydrateColorSet = (value, legacy) => {
+      if (Array.isArray(value)) return new Set(value.filter(c => COLORS.includes(c)));
+      if (COLORS.includes(legacy)) return new Set([legacy]);
+      return new Set();
+    };
+    state.starIncludes = hydrateColorSet(data.starIncludes, data.starView);
+    state.starExcludes = hydrateColorSet(data.starExcludes, null);
+    state.circleIncludes = hydrateColorSet(data.circleIncludes, data.circleView);
+    state.circleExcludes = hydrateColorSet(data.circleExcludes, null);
+    if (Array.isArray(data.collectionIncludes)) state.collectionIncludes = new Set(data.collectionIncludes.filter(id => typeof id === 'string' && id));
+    else if (typeof data.collectionView === 'string' && data.collectionView) state.collectionIncludes = new Set([data.collectionView]);
+    if (Array.isArray(data.collectionExcludes)) state.collectionExcludes = new Set(data.collectionExcludes.filter(id => typeof id === 'string' && id));
     for (const c of COLORS) if (data.circleExclusions && typeof data.circleExclusions[c] === 'boolean') state.circleExclusions[c] = data.circleExclusions[c];
     if (data.statuses && typeof data.statuses === 'object') {
       for (const [id, value] of Object.entries(data.statuses)) if (STATUS[value] && value !== 'unreviewed') state.statusesById[id] = value;
@@ -2355,22 +2383,26 @@ function hydrate() {
     if (data.customTags && typeof data.customTags === 'object') {
       for (const [id, tags] of Object.entries(data.customTags)) {
         if (!byId.has(id) || !Array.isArray(tags)) continue;
-        const clean = [...new Set(tags.map(t => String(t).trim().slice(0, 30)).filter(Boolean))].slice(0, 12);
+        const clean = [...new Set(tags.map(t => String(t).trim().slice(0, 100)).filter(Boolean))].slice(0, 20);
         if (clean.length) state.customTags[id] = clean;
       }
     }
     if (Array.isArray(data.collections)) {
       state.collections = data.collections.filter(c => c && c.name && Array.isArray(c.ids)).slice(0, 100).map((c, i) => ({
-        id: String(c.id || 'col_' + i), name: String(c.name).slice(0, 50),
+        id: String(c.id || 'col_' + i), name: String(c.name).slice(0, 100),
         ids: [...new Set(c.ids.filter(id => byId.has(id)))], color: c.color || '#5eead4'
       }));
     }
+    const validCollections = new Set(state.collections.map(c => c.id));
+    for (const id of [...state.collectionIncludes]) if (!validCollections.has(id)) state.collectionIncludes.delete(id);
+    for (const id of [...state.collectionExcludes]) if (!validCollections.has(id)) state.collectionExcludes.delete(id);
     if (Array.isArray(data.activity)) state.activity = data.activity.filter(a => a && a.text).slice(0, 60);
     if (Array.isArray(data.recent)) state.recent = [...new Set(data.recent.filter(id => byId.has(id)))].slice(0, 12);
-    if (Array.isArray(data.recentSearches)) state.recentSearches = [...new Set(data.recentSearches.map(String).filter(Boolean))].slice(0, 8);
+    if (Array.isArray(data.recentSearches)) state.recentSearches = [...new Set(data.recentSearches.map(String).filter(Boolean))].slice(0, 50);
     if (Array.isArray(data.queue)) state.queue = data.queue.filter(id => byId.has(id));
     if (Array.isArray(data.savedViews)) state.savedViews = data.savedViews.filter(v => v && v.name && v.filters).slice(0, 40);
     if (Array.isArray(data.smartViewOrder)) state.smartViewOrder = [...new Set(data.smartViewOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
+    if (Array.isArray(data.hiddenBuiltinViews)) state.hiddenBuiltinViews = [...new Set(data.hiddenBuiltinViews.filter(id => typeof id === 'string' && id))];
 if (Array.isArray(data.sidebarSectionOrder)) state.sidebarSectionOrder = [...new Set(data.sidebarSectionOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
 if (Array.isArray(data.facetOrder)) state.facetOrder = [...new Set(data.facetOrder.filter(id => typeof id === 'string' && id).slice(0, 100))];
 if (data.facetExcludes && typeof data.facetExcludes === 'object') {
@@ -2417,9 +2449,8 @@ function migrateOldMarks() {
     if (Array.isArray(old.stars?.[c])) state.marks.stars[c] = new Set(old.stars[c]);
     if (Array.isArray(old.circles?.[c])) state.marks.circles[c] = new Set(old.circles[c]);
   }
-  if (['off', 'include', 'exclude'].includes(old.starLogic)) state.starLogic = old.starLogic;
-  if (['off', 'include', 'exclude'].includes(old.circleLogic)) state.circleLogic = old.circleLogic;
   state.starsLocked = !!old.starsLocked;
+  state.circlesLocked = !!old.circlesLocked;
   for (const c of COLORS) if (old.circleExclusions && typeof old.circleExclusions[c] === 'boolean') state.circleExclusions[c] = old.circleExclusions[c];
   migratedMarks = true;
 }
@@ -2571,18 +2602,14 @@ function matches(v, ignore = null) {
   if (ignore !== 'tag' && state.facetExcludes.tag.size && tagsOf(v.id).some(t => state.facetExcludes.tag.has(t))) return false;
   if (ignore !== 'quality' && state.qualities.size && !qualityValues(v).some(q => state.qualities.has(q))) return false;
   if (ignore !== 'quality' && state.facetExcludes.quality.size && qualityValues(v).some(q => state.facetExcludes.quality.has(q))) return false;
-  if (state.collectionView) {
-    const col = collectionById(state.collectionView);
-    if (!col || !col.ids.includes(v.id)) return false;
-  }
+  if (state.collectionIncludes.size && ![...state.collectionIncludes].some(id => inCollection(id, v.id))) return false;
+  if (state.collectionExcludes.size && [...state.collectionExcludes].some(id => inCollection(id, v.id))) return false;
   if (!queryMatches(v)) return false;
-  if (state.starView && !hasMark('stars', state.starView, v.id)) return false;
-  if (state.circleView && !hasMark('circles', state.circleView, v.id)) return false;
-  if (state.starLogic === 'include' && !COLORS.some(c => hasMark('stars', c, v.id))) return false;
-  if (state.starLogic === 'exclude' && COLORS.some(c => hasMark('stars', c, v.id))) return false;
-  if (state.circleLogic === 'include' && !COLORS.some(c => hasMark('circles', c, v.id))) return false;
-  if (state.circleLogic === 'exclude' && COLORS.some(c => hasMark('circles', c, v.id))) return false;
-  if (!state.circleView) {
+  if (state.starIncludes.size && !COLORS.some(c => state.starIncludes.has(c) && hasMark('stars', c, v.id))) return false;
+  if (state.starExcludes.size && COLORS.some(c => state.starExcludes.has(c) && hasMark('stars', c, v.id))) return false;
+  if (state.circleIncludes.size && !COLORS.some(c => state.circleIncludes.has(c) && hasMark('circles', c, v.id))) return false;
+  if (state.circleExcludes.size && COLORS.some(c => state.circleExcludes.has(c) && hasMark('circles', c, v.id))) return false;
+  if (!state.circleIncludes.size && !state.circleExcludes.size) {
     for (const c of COLORS) if (state.appliedCircleExclusions[c] && state.appliedCircleMarks[c].has(v.id)) return false;
   }
   return true;
@@ -2742,16 +2769,21 @@ function renderMarksPanel() {
   const starTotal = COLORS.reduce((n, c) => n + markCountFor('stars', c), 0);
   const circleTotal = COLORS.reduce((n, c) => n + markCountFor('circles', c), 0);
   const viewBtn = (kind, color) => {
-    const view = kind === 'stars' ? state.starView : state.circleView;
-    return `<button class="mark-view ${view === color ? 'active' : ''}" style="--mark:${COLOR_HEX[color]}" data-action="mark-view" data-kind="${kind}" data-color="${color}" title="Show only ${color} ${kind}">
+    const inc = kind === 'stars' ? state.starIncludes : state.circleIncludes;
+    const exc = kind === 'stars' ? state.starExcludes : state.circleExcludes;
+    const isIn = inc.has(color), isEx = exc.has(color);
+    const cls = isIn ? 'active' : isEx ? 'excluded' : '';
+    const hint = isIn ? 'Included — click to exclude' : isEx ? 'Excluded — click to clear' : 'Click to include';
+    return `<button class="mark-view ${cls}" style="--mark:${COLOR_HEX[color]}" data-action="mark-view" data-kind="${kind}" data-color="${color}" title="${COLOR_LABEL[color]} ${kind} · ${hint}" aria-pressed="${isIn ? 'true' : isEx ? 'mixed' : 'false'}">
       <span class="mark-symbol">${kind === 'stars' ? '★' : '●'}</span>${COLOR_LABEL[color]}<b>${fmt(markCountFor(kind, color))}</b>
     </button>`;
   };
   const exclusions = COLORS.map(c => `<label title="Exclude voices with a ${c} circle"><input type="checkbox" data-exclusion="${c}" ${state.circleExclusions[c] ? 'checked' : ''}>${COLOR_LABEL[c]}</label>`).join('');
   const pending = COLORS.some(c => state.circleExclusions[c] !== state.appliedCircleExclusions[c]);
   const applied = COLORS.filter(c => state.appliedCircleExclusions[c]);
-  const statusText = state.circleView
-    ? '<strong>Circle view active.</strong> Exclusions are paused while a specific circle view is selected.'
+  const circleFilterActive = state.circleIncludes.size > 0 || state.circleExcludes.size > 0;
+  const statusText = circleFilterActive
+    ? '<strong>Circle filters active.</strong> Manual exclusions are paused while circle filters are active.'
     : pending
       ? '<strong>Pending changes.</strong> Press Refresh results to apply circle exclusions.'
       : applied.length
@@ -2763,12 +2795,11 @@ function renderMarksPanel() {
       <div class="mark-views">${COLORS.map(c => viewBtn('stars', c)).join('')}</div>
       <div class="mark-title" style="margin-top:1px"><span class="mark-symbol" style="color:${COLOR_HEX.blue}">●</span>Circles<span class="mark-total">${fmt(circleTotal)}</span></div>
       <div class="mark-views">${COLORS.map(c => viewBtn('circles', c)).join('')}</div>
-      <div class="logic-row">
-        <label>Star logic<select data-select="starLogic"><option value="off"${state.starLogic === 'off' ? ' selected' : ''}>Off</option><option value="include"${state.starLogic === 'include' ? ' selected' : ''}>Include</option><option value="exclude"${state.starLogic === 'exclude' ? ' selected' : ''}>Exclude</option></select></label>
-        <label>Circle logic<select data-select="circleLogic"><option value="off"${state.circleLogic === 'off' ? ' selected' : ''}>Off</option><option value="include"${state.circleLogic === 'include' ? ' selected' : ''}>Include</option><option value="exclude"${state.circleLogic === 'exclude' ? ' selected' : ''}>Exclude</option></select></label>
+      <div class="lock-row">
+        <label class="switch-row"><span>Lock stars</span><input type="checkbox" data-check="starsLocked" ${state.starsLocked ? 'checked' : ''}></label>
+        <label class="switch-row"><span>Lock circles</span><input type="checkbox" data-check="circlesLocked" ${state.circlesLocked ? 'checked' : ''}></label>
       </div>
-      <label class="switch-row"><span>Lock stars</span><input type="checkbox" data-check="starsLocked" ${state.starsLocked ? 'checked' : ''}></label>
-      <div class="mark-sub">Circle exclusions</div>
+      <div class="mark-sub">Manually applied circle exclusion</div>
       <div class="exclusion-grid">${exclusions}</div>
       <button class="btn small ghost" data-action="refresh-exclusions">↻ Refresh results</button>
       <div class="exclusion-status">${statusText}</div>
@@ -2777,8 +2808,9 @@ function renderMarksPanel() {
 }
 
 function smartViewItems() {
+  const hidden = new Set(state.hiddenBuiltinViews);
   const all = [
-    ...BUILTIN_VIEWS.map(v => ({ ...v, kind: 'builtin' })),
+    ...BUILTIN_VIEWS.filter(v => !hidden.has(v.id)).map(v => ({ ...v, kind: 'builtin' })),
     ...state.savedViews.map(v => ({ ...v, kind: 'custom' }))
   ];
   const byId = new Map(all.map(v => [v.id, v]));
@@ -2800,7 +2832,7 @@ function renderSmartViews() {
     if (v.kind === 'custom') {
       return `<div class="view-btn" draggable="true" data-view-id="${esc(v.id)}"><button class="v-main" data-action="apply-saved-view" data-view-id="${esc(v.id)}" title="Apply ${esc(v.name)}">${grip}<span class="v-icon">◆</span><span class="v-name">${esc(v.name)}</span></button><button class="v-del" data-action="delete-view" data-view-id="${esc(v.id)}" title="Delete view">×</button></div>`;
     }
-    return `<div class="view-btn" draggable="true" data-view-id="${esc(v.id)}"><button class="v-main" data-action="apply-builtin-view" data-view-id="${esc(v.id)}" title="Apply view">${grip}<span class="v-icon">${v.icon}</span><span class="v-name">${esc(v.name)}</span><span class="v-hint">${esc(v.id === 'all' ? fmt(VOICES.length) : v.hint)}</span></button></div>`;
+    return `<div class="view-btn" draggable="true" data-view-id="${esc(v.id)}"><button class="v-main" data-action="apply-builtin-view" data-view-id="${esc(v.id)}" title="Apply view">${grip}<span class="v-icon">${v.icon}</span><span class="v-name">${esc(v.name)}</span><span class="v-hint">${esc(v.id === 'all' ? fmt(VOICES.length) : v.hint)}</span></button><button class="v-del" data-action="delete-builtin-view" data-view-id="${esc(v.id)}" title="Remove default view">×</button></div>`;
   }).join('');
 }
 function clearSmartViewDropMarks() {
@@ -2831,7 +2863,13 @@ function renderCollections() {
     if (!state.collections.length) {
       box.innerHTML = '<div class="collection-empty">Group voices into casting collections. Use <b>+ New</b> or the folder action on any card.</div>';
     } else {
-      box.innerHTML = state.collections.map(c => `<div class="collection-row" draggable="true" data-collection-id="${esc(c.id)}"><span class="c-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span><button class="collection-btn ${state.collectionView === c.id ? 'active' : ''}" data-action="set-collection" data-collection="${esc(c.id)}" title="Show ${esc(c.name)}"><span class="c-dot" style="background:${esc(c.color || '#5eead4')}"></span><span class="c-name">${esc(c.name)}</span><span class="c-count">${fmt(c.ids.length)}</span></button><button class="collection-del" data-action="delete-collection" data-collection="${esc(c.id)}" title="Delete collection">×</button></div>`).join('');
+      box.innerHTML = state.collections.map(c => {
+        const isIn = state.collectionIncludes.has(c.id);
+        const isEx = state.collectionExcludes.has(c.id);
+        const cls = isIn ? 'active' : isEx ? 'excluded' : '';
+        const hint = isIn ? 'Included — click to exclude' : isEx ? 'Excluded — click to clear' : 'Click to include';
+        return `<div class="collection-row" draggable="true" data-collection-id="${esc(c.id)}"><span class="c-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span><button class="collection-btn ${cls}" data-action="set-collection" data-collection="${esc(c.id)}" title="${esc(c.name)} · ${hint}" aria-pressed="${isIn ? 'true' : isEx ? 'mixed' : 'false'}"><span class="c-dot" style="background:${esc(c.color || '#5eead4')}"></span><span class="c-name">${esc(c.name)}</span><span class="c-count">${fmt(c.ids.length)}</span></button><button class="collection-del" data-action="delete-collection" data-collection="${esc(c.id)}" title="Delete collection">×</button></div>`;
+      }).join('');
     }
   }
   const recent = $('recentVoices');
@@ -2906,7 +2944,7 @@ function reorderSidebarSection(sourceId, targetId, after) {
 function renderRecentSearches() {
   const box = $('recentSearches');
   if (!box) return;
-  box.innerHTML = state.recentSearches.slice(0, 5).map(q => `<button data-action="apply-search" data-value="${esc(q)}" title="Run search again">↺ ${esc(q.length > 24 ? q.slice(0, 24) + '…' : q)}</button>`).join('');
+  box.innerHTML = state.recentSearches.slice(0, 20).map(q => `<span class="recent-search-row"><button class="rs-del" data-action="delete-recent-search" data-value="${esc(q)}" title="Remove this search" aria-label="Remove this search">×</button><button class="rs-run" data-action="apply-search" data-value="${esc(q)}" title="Run search again">↺ ${esc(q.length > 24 ? q.slice(0, 24) + '…' : q)}</button></span>`).join('');
 }
 function relativeTime(ts) {
   const delta = Math.max(0, Date.now() - Number(ts || 0));
@@ -2922,7 +2960,7 @@ function renderActivity() {
     box.innerHTML = '<div class="collection-empty">Casting actions — marks, statuses, notes, tags, queues — show up here.</div>';
     return;
   }
-  box.innerHTML = state.activity.slice(0, 8).map(a => `<div class="activity-item"><span class="a-icon">${esc(a.icon || '·')}</span><span class="a-text">${esc(a.text)}</span><span class="a-time">${relativeTime(a.t)}</span></div>`).join('');
+  box.innerHTML = state.activity.slice(0, 30).map(a => `<div class="activity-item"><span class="a-icon">${esc(a.icon || '·')}</span><span class="a-text">${esc(a.text)}</span><span class="a-time">${relativeTime(a.t)}</span></div>`).join('');
 }
 function renderDataHealth() {
   const box = $('dataHealth');
@@ -2931,7 +2969,14 @@ function renderDataHealth() {
   const total = VOICES.length;
   const issues = total - counts.complete;
   if ($('healthPill')) $('healthPill').textContent = issues ? `${fmt(issues)} open` : 'clean';
-  const item = (label, key, count, ok) => `<button class="health-btn ${ok ? 'ok' : ''}" data-action="apply-quality" data-value="${key}" title="Filter by ${esc(label)}"><span>${esc(label)}</span><b>${fmt(count)}</b></button>`;
+  const excludes = facetExcludeSet('quality');
+  const item = (label, key, count, ok) => {
+    const isIn = state.qualities.has(key);
+    const isEx = excludes.has(key);
+    const cls = `health-btn${ok ? ' ok' : ''}${isIn ? ' active' : ''}${isEx ? ' excluded' : ''}`;
+    const hint = isIn ? 'Included — click to exclude' : isEx ? 'Excluded — click to clear' : 'Click to include';
+    return `<button class="${cls}" data-action="apply-quality" data-value="${key}" title="${esc(label)} · ${hint}" aria-pressed="${isIn ? 'true' : isEx ? 'mixed' : 'false'}"><span>${esc(label)}</span><b>${fmt(count)}</b></button>`;
+  };
   box.innerHTML = `<div class="health-grid">
     ${item('Missing audio', 'missingAudio', counts.missingAudio, !counts.missingAudio)}
     ${item('No description', 'missingDesc', counts.missingDesc, !counts.missingDesc)}
@@ -2965,16 +3010,20 @@ function renderActiveFilters() {
       chips.push(`<button class="active-chip excluded" data-action="clear-one" data-clear="facet" data-facet="${facet.key}" data-value="${esc(value)}" title="Remove exclusion">− ${esc(prefix + facetLabel(facet.key, value))}<span class="x">×</span></button>`);
     }
   }
-  if (state.collectionView) {
-    const col = collectionById(state.collectionView);
-    if (col) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="collection" title="Clear collection">▣ ${esc(col.name)}<span class="x">×</span></button>`);
+  for (const id of state.collectionIncludes) {
+    const col = collectionById(id);
+    if (col) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="collection" data-collection="${esc(id)}" title="Remove collection filter">▣ ${esc(col.name)}<span class="x">×</span></button>`);
   }
-  if (state.starView) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="starView" title="Clear star view">★ ${COLOR_LABEL[state.starView]}<span class="x">×</span></button>`);
-  if (state.circleView) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="circleView" title="Clear circle view">● ${COLOR_LABEL[state.circleView]}<span class="x">×</span></button>`);
-  if (state.starLogic !== 'off') chips.push(`<button class="active-chip" data-action="clear-one" data-clear="starLogic" title="Clear star logic">★ Stars: ${cap(state.starLogic)}<span class="x">×</span></button>`);
-  if (state.circleLogic !== 'off') chips.push(`<button class="active-chip" data-action="clear-one" data-clear="circleLogic" title="Clear circle logic">● Circles: ${cap(state.circleLogic)}<span class="x">×</span></button>`);
+  for (const id of state.collectionExcludes) {
+    const col = collectionById(id);
+    if (col) chips.push(`<button class="active-chip excluded" data-action="clear-one" data-clear="collection" data-collection="${esc(id)}" title="Remove collection exclusion">− ▣ ${esc(col.name)}<span class="x">×</span></button>`);
+  }
+  for (const c of state.starIncludes) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="star" data-value="${c}" title="Remove star filter">★ ${COLOR_LABEL[c]}<span class="x">×</span></button>`);
+  for (const c of state.starExcludes) chips.push(`<button class="active-chip excluded" data-action="clear-one" data-clear="star" data-value="${c}" title="Remove star exclusion">− ★ ${COLOR_LABEL[c]}<span class="x">×</span></button>`);
+  for (const c of state.circleIncludes) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="circle" data-value="${c}" title="Remove circle filter">● ${COLOR_LABEL[c]}<span class="x">×</span></button>`);
+  for (const c of state.circleExcludes) chips.push(`<button class="active-chip excluded" data-action="clear-one" data-clear="circle" data-value="${c}" title="Remove circle exclusion">− ● ${COLOR_LABEL[c]}<span class="x">×</span></button>`);
   const excluded = COLORS.filter(c => state.appliedCircleExclusions[c]);
-  if (excluded.length) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="exclusions" title="Clear circle exclusions">● Excluding: ${excluded.map(c => COLOR_LABEL[c]).join(', ')}${state.circleView ? ' (paused)' : ''}<span class="x">×</span></button>`);
+  if (excluded.length) chips.push(`<button class="active-chip" data-action="clear-one" data-clear="exclusions" title="Clear circle exclusions">● Excluding: ${excluded.map(c => COLOR_LABEL[c]).join(', ')}${state.circleIncludes.size || state.circleExcludes.size ? ' (paused)' : ''}<span class="x">×</span></button>`);
   box.innerHTML = chips.length ? chips.join('') + '<button class="clear-filters" data-action="clear-all">Clear all</button>' : '<span style="font-size:9px;color:var(--dim)">No filters — showing the complete library.</span>';
 }
 
@@ -3002,9 +3051,10 @@ function renderInsightsStrip() {
     } else {
       const active = [...state.manifests, ...state.genders, ...state.ages, ...state.textures, ...state.tones, ...state.statuses, ...state.prioritiesFilter, ...state.tagsFilter, ...state.qualities].length
         + Object.values(state.facetExcludes).reduce((n, set) => n + set.size, 0)
-        + (state.collectionView ? 1 : 0) + (state.starView ? 1 : 0) + (state.circleView ? 1 : 0)
-        + (state.starLogic !== 'off' ? 1 : 0) + (state.circleLogic !== 'off' ? 1 : 0)
-        + (!state.circleView && COLORS.some(c => state.appliedCircleExclusions[c]) ? 1 : 0);
+        + state.collectionIncludes.size + state.collectionExcludes.size
+        + state.starIncludes.size + state.starExcludes.size
+        + state.circleIncludes.size + state.circleExcludes.size
+        + (!state.circleIncludes.size && !state.circleExcludes.size && COLORS.some(c => state.appliedCircleExclusions[c]) ? 1 : 0);
       $('resultLine').textContent = `${fmt(results)} of ${fmt(total)} voices${active || state.search.trim() ? ' match your filters' : ' across ' + new Set(VOICES.map(v => v.manifestTag)).size + ' novels'}`;
     }
   }
@@ -3030,14 +3080,14 @@ function markButtonsHtml(v) {
   }).join('');
   const circles = COLORS.map(c => {
     const active = hasMark('circles', c, v.id);
-    return `<button class="mark-btn ${active ? 'active' : ''}" style="--mark:${COLOR_HEX[c]}" data-action="mark" data-kind="circles" data-color="${c}" data-id="${esc(v.id)}" title="${COLOR_LABEL[c]} circle" aria-label="${COLOR_LABEL[c]} circle">${active ? '●' : '○'}</button>`;
+    return `<button class="mark-btn ${active ? 'active' : ''}${state.circlesLocked ? ' star-locked' : ''}" style="--mark:${COLOR_HEX[c]}" data-action="mark" data-kind="circles" data-color="${c}" data-id="${esc(v.id)}" title="${COLOR_LABEL[c]} circle${state.circlesLocked ? ' (locked)' : ''}" aria-label="${COLOR_LABEL[c]} circle">${active ? '●' : '○'}</button>`;
   }).join('');
   return stars + '<span class="mark-sep"></span>' + circles;
 }
 function reviewMarksHtml(v) {
   const row = (kind, glyph) => `<div class="rm-row"><span class="rm-kind">${glyph}</span>${COLORS.map(c => {
     const active = hasMark(kind, c, v.id);
-    const locked = kind === 'stars' && state.starsLocked;
+    const locked = (kind === 'stars' && state.starsLocked) || (kind === 'circles' && state.circlesLocked);
     return `<button class="mark-btn ${active ? 'active' : ''}${locked ? ' star-locked' : ''}" style="--mark:${COLOR_HEX[c]}" data-action="mark" data-kind="${kind}" data-color="${c}" data-id="${esc(v.id)}" title="${COLOR_LABEL[c]} ${kind === 'stars' ? 'star' : 'circle'}${locked ? ' (locked)' : ''}" aria-label="${COLOR_LABEL[c]} ${kind === 'stars' ? 'star' : 'circle'}">${active ? (kind === 'stars' ? '★' : '●') : (kind === 'stars' ? '☆' : '○')}</button>`;
   }).join('')}</div>`;
   return row('stars', '★') + row('circles', '●');
@@ -3070,7 +3120,7 @@ function cardHtml(v) {
   for (const age of (v.age || []).slice(0, 2)) tags.push(tagHtml('age', age, 'age'));
   for (const tex of (v.texture || []).slice(0, 3)) tags.push(tagHtml('texture', tex, 'texture'));
   for (const tone of (v.tone || []).slice(0, 5)) tags.push(tagHtml('tone', tone, 'tone'));
-  const shown = tags.slice(0, 10);
+  const shown = tags.slice(0, 20);
   const extra = tags.length - shown.length;
   const note = noteOf(v.id);
   const playing = currentId === v.id && isPlaying;
@@ -3526,8 +3576,9 @@ function coreSnapshot() {
       stars: Object.fromEntries(COLORS.map(c => [c, [...state.marks.stars[c]]])),
       circles: Object.fromEntries(COLORS.map(c => [c, [...state.marks.circles[c]]]))
     },
-    starLogic: state.starLogic, circleLogic: state.circleLogic, starsLocked: state.starsLocked,
-    starView: state.starView, circleView: state.circleView,
+    starsLocked: state.starsLocked, circlesLocked: state.circlesLocked,
+    starIncludes: [...state.starIncludes], starExcludes: [...state.starExcludes],
+    circleIncludes: [...state.circleIncludes], circleExcludes: [...state.circleExcludes],
     circleExclusions: { ...state.circleExclusions },
     appliedCircleExclusions: { ...state.appliedCircleExclusions },
     appliedCircleMarks: Object.fromEntries(COLORS.map(c => [c, [...state.appliedCircleMarks[c]]])),
@@ -3535,7 +3586,7 @@ function coreSnapshot() {
     priorities: { ...state.priorities },
     customTags: Object.fromEntries(Object.entries(state.customTags).map(([id, tags]) => [id, [...tags]])),
     collections: state.collections.map(c => ({ ...c, ids: [...c.ids] })),
-    queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), smartViewOrder: [...state.smartViewOrder], activity: state.activity.slice(0, 60), recent: [...state.recent]
+    queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), hiddenBuiltinViews: [...state.hiddenBuiltinViews], smartViewOrder: [...state.smartViewOrder], activity: state.activity.slice(0, 60), recent: [...state.recent]
   };
 }
 function pushHistory(label = 'change') {
@@ -3553,11 +3604,12 @@ function restoreCore(data) {
       state.marks.stars[c] = new Set(data.marks?.stars?.[c] || []);
       state.marks.circles[c] = new Set(data.marks?.circles?.[c] || []);
     }
-    state.starLogic = data.starLogic || 'off';
-    state.circleLogic = data.circleLogic || 'off';
     state.starsLocked = !!data.starsLocked;
-    state.starView = data.starView || null;
-    state.circleView = data.circleView || null;
+    state.circlesLocked = !!data.circlesLocked;
+    state.starIncludes = new Set(Array.isArray(data.starIncludes) ? data.starIncludes.filter(c => COLORS.includes(c)) : (COLORS.includes(data.starView) ? [data.starView] : []));
+    state.starExcludes = new Set(Array.isArray(data.starExcludes) ? data.starExcludes.filter(c => COLORS.includes(c)) : []);
+    state.circleIncludes = new Set(Array.isArray(data.circleIncludes) ? data.circleIncludes.filter(c => COLORS.includes(c)) : (COLORS.includes(data.circleView) ? [data.circleView] : []));
+    state.circleExcludes = new Set(Array.isArray(data.circleExcludes) ? data.circleExcludes.filter(c => COLORS.includes(c)) : []);
     state.circleExclusions = { ...emptyExclusions(), ...(data.circleExclusions || {}) };
     state.appliedCircleExclusions = data.appliedCircleExclusions ? { ...emptyExclusions(), ...data.appliedCircleExclusions } : { ...state.circleExclusions };
     for (const c of COLORS) state.appliedCircleMarks[c] = new Set(data.appliedCircleMarks?.[c] || state.marks.circles[c]);
@@ -3568,6 +3620,7 @@ function restoreCore(data) {
     state.collections = (data.collections || []).map(c => ({ ...c, ids: [...(c.ids || [])] }));
     state.queue = [...(data.queue || [])];
     state.savedViews = data.savedViews || [];
+    state.hiddenBuiltinViews = [...(data.hiddenBuiltinViews || [])];
     state.smartViewOrder = [...(data.smartViewOrder || [])];
     state.activity = data.activity || [];
     state.recent = data.recent || [];
@@ -3617,7 +3670,7 @@ function clearRecentVoices() {
 function rememberSearch(value) {
   const q = String(value || '').trim();
   if (q.length < 2) return;
-  state.recentSearches = [q, ...state.recentSearches.filter(x => x !== q)].slice(0, 8);
+  state.recentSearches = [q, ...state.recentSearches.filter(x => x !== q)].slice(0, 50);
   persist();
   renderRecentSearches();
 }
@@ -3781,11 +3834,11 @@ function bulkExport() {
   addActivity(`Exported ${voices.length} selected voices as CSV`, '⤓');
 }
 function addTagRaw(id, tag) {
-  const clean = String(tag || '').trim().replace(/^#/, '').slice(0, 30);
+  const clean = String(tag || '').trim().replace(/^#/, '').slice(0, 100);
   if (!clean) return false;
   const list = tagsOf(id);
   if (list.some(t => t.toLowerCase() === clean.toLowerCase())) return false;
-  state.customTags[id] = [...list, clean].slice(0, 12);
+  state.customTags[id] = [...list, clean].slice(0, 20);
   return true;
 }
 function cyclePriority(id) {
@@ -3814,7 +3867,7 @@ function openTagEditor(id) {
   const suggestions = uniq(Object.values(state.customTags).flat()).filter(t => !tags.includes(t)).slice(0, 8);
   const body = `<p><b style="color:var(--text)">${esc(state.blind ? 'Hidden voice' : v.name)}</b> · private labels for casting, dialect, or callback tracking.</p>
     <div class="tag-editor" id="tagEditorList">${tags.length ? tags.map(t => `<span class="tag-pill">#${esc(t)}<button data-action="remove-tag" data-id="${esc(id)}" data-tag="${esc(t)}" title="Remove tag">×</button></span>`).join('') : '<span style="font-size:9px;color:var(--dim)">No custom tags yet.</span>'}</div>
-    <div class="tag-input-row"><input id="tagInput" maxlength="30" placeholder="e.g. lead, villain, warm, callback"><button class="btn primary" data-action="add-tag" data-id="${esc(id)}">Add tag</button></div>
+    <div class="tag-input-row"><input id="tagInput" maxlength="100" placeholder="e.g. lead, villain, warm, callback"><button class="btn primary" data-action="add-tag" data-id="${esc(id)}">Add tag</button></div>
     ${suggestions.length ? `<div class="tag-suggestions">${suggestions.map(t => `<button data-action="add-tag" data-id="${esc(id)}" data-tag="${esc(t)}">#${esc(t)}</button>`).join('')}</div>` : ''}`;
   openModal('tags', 'Voice tags', 'Local, private, and searchable with tag:', body, { compact: true });
   setTimeout(() => $('tagInput')?.focus(), 60);
@@ -3839,7 +3892,7 @@ function removeTag(id, tag) {
   if (state.reviewOpen) renderReview();
 }
 function createCollection(name, ids = [], color = null) {
-  const clean = String(name || '').trim().slice(0, 50);
+  const clean = String(name || '').trim().slice(0, 100);
   if (!clean) return null;
   const palette = ['#5eead4', '#c4b5fd', '#fcd34d', '#f9a8d4', '#93c5fd', '#bef264'];
   const col = { id: 'col_' + Date.now().toString(36), name: clean, ids: [...new Set(ids.filter(id => byId.has(id)))], color: color || palette[state.collections.length % palette.length] };
@@ -3861,17 +3914,29 @@ function deleteCollection(id) {
   if (state.settings.confirmDestructive && !confirm(`Delete the collection “${col.name}”? Voice marks, statuses, and notes are untouched.`)) return;
   pushHistory('delete collection');
   state.collections = state.collections.filter(c => c.id !== id);
-  if (state.collectionView === id) state.collectionView = null;
+  state.collectionIncludes.delete(id);
+  state.collectionExcludes.delete(id);
   persist(); render();
   addActivity(`Deleted collection “${col.name}”`, '×');
   showToast('Collection deleted.', 'info');
 }
-function setCollectionView(id) {
-  state.collectionView = state.collectionView === id ? null : id;
+function toggleCollection(id) {
+  const col = collectionById(id);
+  if (!col) return;
+  if (state.collectionIncludes.has(id)) {
+    state.collectionIncludes.delete(id);
+    state.collectionExcludes.add(id);
+  } else if (state.collectionExcludes.has(id)) {
+    state.collectionExcludes.delete(id);
+  } else {
+    state.collectionExcludes.delete(id);
+    state.collectionIncludes.add(id);
+  }
   state.visibleCount = pageSize();
   persist(); render(); writeUrlState();
-  const col = collectionById(state.collectionView);
-  if (col) showToast(`Showing “${col.name}” (${col.ids.length} voices).`, 'info');
+  if (state.collectionIncludes.has(id)) showToast(`Including “${col.name}” (${col.ids.length} voices).`, 'info');
+  else if (state.collectionExcludes.has(id)) showToast(`Excluding “${col.name}”.`, 'info');
+  else showToast(`Cleared the “${col.name}” filter.`, 'info');
 }
 function openCollectionPicker(id, bulk = false) {
   const ids = bulk ? [...state.selected] : (id ? [id] : []);
@@ -3881,7 +3946,7 @@ function openCollectionPicker(id, bulk = false) {
     : '<p style="font-size:9px;color:var(--dim)">No collections yet. Create one below.</p>';
   const body = `<p>${bulk ? `Add all <b style="color:var(--text)">${ids.length}</b> selected voices to a collection.` : `Choose a casting collection for <b style="color:var(--text)">${esc(state.blind ? 'this hidden voice' : (byId.get(id)?.name || 'this voice'))}</b>.`}</p>
     ${list}
-    <div class="tag-input-row" style="margin-top:9px"><input id="collectionNameInput" maxlength="50" placeholder="New collection name…"><button class="btn primary" data-action="create-collection-pick" data-id="${esc(id || '')}" data-bulk="${bulk ? '1' : ''}">Create &amp; add</button></div>
+    <div class="tag-input-row" style="margin-top:9px"><input id="collectionNameInput" maxlength="100" placeholder="New collection name…"><button class="btn primary" data-action="create-collection-pick" data-id="${esc(id || '')}" data-bulk="${bulk ? '1' : ''}">Create &amp; add</button></div>
     <div style="display:flex;gap:5px;justify-content:flex-end;margin-top:9px"><button class="btn ghost" data-action="close-modal">Cancel</button></div>`;
   openModal('collection-picker', title, 'Collections are local and never modify source data', body, { compact: true });
 }
@@ -4038,7 +4103,7 @@ function boardCardHtml(v) {
       <button class="mini-btn" data-action="peek" data-id="${esc(v.id)}" title="Open quick peek">⌕</button>
       <button class="mini-btn ${state.compare.includes(v.id) ? 'active' : ''}" data-action="compare" data-id="${esc(v.id)}" title="Compare">⇄</button>
       <button class="mini-btn ${noteOf(v.id) ? 'has-note' : ''}" data-action="note" data-id="${esc(v.id)}" title="Note">✎</button>
-      <span class="b-note">${esc(noteOf(v.id).slice(0, 20))}</span>
+      <span class="b-note">${esc(noteOf(v.id).slice(0, 40))}</span>
       <span class="mono" style="font-size:7px;color:${COLORS.find(c => hasMark('stars', c, v.id)) ? COLOR_HEX[COLORS.find(c => hasMark('stars', c, v.id))] : 'var(--dim)'}">★${markCount(v.id)}</span>
     </div>
   </div>`;
@@ -4226,7 +4291,7 @@ function renderInsightsWorkspace() {
   const heatMax = Math.max(1, ...heat.flatMap(r => r.slice(1)));
   const heatHtml = heat.map(([tone, ...vals]) => `<div class="hm-label" title="${esc(tone)}">${esc(tone)}</div>${vals.map(n => `<div class="hm-cell" style="background:rgba(94,234,212,${(0.05 + (n / heatMax) * 0.75).toFixed(2)});color:${n ? 'var(--text)' : 'var(--dim)'}">${n || ''}</div>`).join('')}`).join('');
   const statusLegend = statusItems.map(([s, n]) => `<span><i style="--c:${STATUS_COLORS[s]}"></i>${STATUS[s].label}<b>${fmt(n)}</b></span>`).join('');
-  const scope = state.collectionView ? collectionNameFor(state.collectionView) : 'Current view';
+  const scope = state.collectionIncludes.size ? [...state.collectionIncludes].map(id => collectionNameFor(id)).join(', ') : 'Current view';
   if ($('insightsScope')) $('insightsScope').textContent = `${scope} · ${fmt(total)} voices`;
   box.innerHTML = `
     <div class="insights-card span-3"><h3>Voices in view</h3><div class="big-stat">${fmt(total)}<small>of ${fmt(VOICES.length)}</small></div><div class="mini-note">${pct(total, VOICES.length)}% of the complete library. ${state.search.trim() ? `Search: “${esc(state.search)}”` : 'No search query.'}</div></div>
@@ -4415,12 +4480,13 @@ function eraseStudioData() {
     state.marks.circles[c] = new Set();
     state.appliedCircleMarks[c] = new Set();
   }
-  state.starLogic = 'off'; state.circleLogic = 'off'; state.starsLocked = false;
+  state.starsLocked = false; state.circlesLocked = false;
   state.circleExclusions = emptyExclusions();
   state.appliedCircleExclusions = emptyExclusions();
-  state.starView = null; state.circleView = null;
+  state.starIncludes.clear(); state.starExcludes.clear();
+  state.circleIncludes.clear(); state.circleExcludes.clear();
   state.statusesById = {}; state.notes = {}; state.priorities = {}; state.customTags = {};
-  state.collections = []; state.queue = []; state.compare = []; state.savedViews = []; state.smartViewOrder = [];
+  state.collections = []; state.queue = []; state.compare = []; state.savedViews = []; state.hiddenBuiltinViews = []; state.smartViewOrder = [];
   state.activity = []; state.recent = []; state.recentSearches = [];
   state.workspace = 'library'; state.mapMode = 'manifest';
   state.blind = false; state.focus = false; state.selectMode = false; state.selected.clear();
@@ -4431,7 +4497,7 @@ function eraseStudioData() {
   state.theme = 'dark'; state.continuous = false; state.continuousLength = '3'; state.continuousCustom = '15';
   state.search = ''; state.manifests.clear(); state.genders.clear(); state.ages.clear();
   state.textures.clear(); state.tones.clear(); state.statuses.clear(); state.prioritiesFilter.clear();
-  state.tagsFilter.clear(); state.qualities.clear(); state.collectionView = null;
+  state.tagsFilter.clear(); state.qualities.clear(); state.collectionIncludes.clear(); state.collectionExcludes.clear();
   for (const set of Object.values(state.facetExcludes)) set.clear();
   state.visibleCount = pageSize(); state.facetExpanded = { texture: false, tone: false }; state.collapsed = {};
   undoStack = []; redoStack = [];
@@ -4482,7 +4548,7 @@ function buildReportHtml(rows) {
     .bars{display:flex;gap:14px;margin-bottom:14px;font-size:9px;color:#5b6b7a}.bars span{display:inline-flex;gap:3px}.bars b{color:#17202a}
     table{width:100%;border-collapse:collapse;font-size:8.5px}th{text-align:left;text-transform:uppercase;letter-spacing:.06em;font-size:7px;color:#5b6b7a;border-bottom:1px solid #9fb3c0;padding:5px 4px}td{border-bottom:1px solid #e3eaef;padding:4px;vertical-align:top}tr:nth-child(even) td{background:#f8fafb}.name{font-weight:700}.tag{display:inline-block;border:1px solid #d9e2e8;border-radius:3px;padding:0 3px;margin:0 1px 1px 0;font-size:7px;color:#456}.file{font-size:7px;word-break:break-all;color:#5b6b7a}.note{color:#8a5a00}.footer{margin-top:14px;font-size:8px;color:#7a8b99;display:flex;justify-content:space-between}
   </style></head><body>
-    <div class="head"><div><div class="brand">ALEXANDRIA · CASTING STUDIO</div><h1>Voice casting report</h1><p>${esc(state.search.trim() ? `Search: ${state.search}` : 'Complete filtered view')} · ${state.collectionView ? `Collection: ${esc(collectionNameFor(state.collectionView))}` : 'All collections'}</p></div><div class="meta">Generated ${esc(date)}<br>${fmt(rows.length)} voices · Concept 03</div></div>
+    <div class="head"><div><div class="brand">ALEXANDRIA · CASTING STUDIO</div><h1>Voice casting report</h1><p>${esc(state.search.trim() ? `Search: ${state.search}` : 'Complete filtered view')} · ${state.collectionIncludes.size ? `Collections: ${esc([...state.collectionIncludes].map(id => collectionNameFor(id)).join(', '))}` : 'All collections'}</p></div><div class="meta">Generated ${esc(date)}<br>${fmt(rows.length)} voices · Concept 03</div></div>
     <div class="grid"><div class="stat"><b>${fmt(rows.length)}</b><span>Voices</span></div><div class="stat"><b>${fmt(rows.filter(v => statusOf(v.id) === 'shortlist').length)}</b><span>Shortlist</span></div><div class="stat"><b>${fmt(rows.filter(v => priorityOf(v.id) === 'high').length)}</b><span>High priority</span></div><div class="stat"><b>${fmt(rows.filter(v => noteOf(v.id)).length)}</b><span>With notes</span></div></div>
     <div class="bars">${statusCounts.map(([l, n]) => `<span>${l} <b>${fmt(n)}</b></span>`).join('')}${manifestCounts.map(([l, n]) => `<span>${esc(l)} <b>${fmt(n)}</b></span>`).join('')}</div>
     <table><thead><tr><th>Voice</th><th>Novel</th><th>Tags / collections</th><th>File</th><th>Gender / age</th><th>Tone / texture</th><th>Status</th><th>Priority</th><th>Marks</th><th>Note</th></tr></thead><tbody>
@@ -4493,7 +4559,7 @@ function openReport() {
   const rows = reportRows();
   if (!rows.length) { showToast('Nothing in view to report.', 'warn'); return; }
   const body = `<p>Build a printable casting sheet for <b style="color:var(--text)">${fmt(rows.length)}</b> voices. Marked status, priority, marks, custom tags, collections, filenames, and private notes are included.</p>
-    <div class="report-preview"><h3>Voice casting report</h3><div>${fmt(rows.length)} voices · ${state.collectionView ? esc(collectionNameFor(state.collectionView)) : 'Current filtered view'} · ${new Date().toLocaleDateString()}</div><table><tr><th>Voice</th><th>Novel</th><th>Status</th><th>Priority</th></tr>${rows.slice(0, 7).map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.manifestTag || '')}</td><td>${STATUS[statusOf(v.id)].label}</td><td>${priorityOf(v.id) === 'none' ? '—' : PRIORITY_LABEL[priorityOf(v.id)]}</td></tr>`).join('')}</table>${rows.length > 7 ? `<div style="margin-top:4px">+ ${fmt(rows.length - 7)} more rows</div>` : ''}</div>
+    <div class="report-preview"><h3>Voice casting report</h3><div>${fmt(rows.length)} voices · ${state.collectionIncludes.size ? esc([...state.collectionIncludes].map(id => collectionNameFor(id)).join(', ')) : 'Current filtered view'} · ${new Date().toLocaleDateString()}</div><table><tr><th>Voice</th><th>Novel</th><th>Status</th><th>Priority</th></tr>${rows.slice(0, 7).map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.manifestTag || '')}</td><td>${STATUS[statusOf(v.id)].label}</td><td>${priorityOf(v.id) === 'none' ? '—' : PRIORITY_LABEL[priorityOf(v.id)]}</td></tr>`).join('')}</table>${rows.length > 7 ? `<div style="margin-top:4px">+ ${fmt(rows.length - 7)} more rows</div>` : ''}</div>
     <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:10px"><button class="btn ghost" data-action="download-report">⤓ Download HTML</button><button class="btn primary" data-action="print-report">▤ Print / PDF</button></div>`;
   openModal('report', 'Casting report', 'A print-ready snapshot of the current view', body);
 }
@@ -4870,11 +4936,12 @@ function exportMarks() {
     exportedAt: new Date().toISOString(),
     stars: Object.fromEntries(COLORS.map(c => [c, [...state.marks.stars[c]]])),
     circles: Object.fromEntries(COLORS.map(c => [c, [...state.marks.circles[c]]])),
-    starLogic: state.starLogic,
-    circleLogic: state.circleLogic,
     starsLocked: state.starsLocked,
-    starView: state.starView,
-    circleView: state.circleView,
+    circlesLocked: state.circlesLocked,
+    starIncludes: [...state.starIncludes],
+    starExcludes: [...state.starExcludes],
+    circleIncludes: [...state.circleIncludes],
+    circleExcludes: [...state.circleExcludes],
     circleExclusions: { ...state.circleExclusions }
   };
   downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `alexandria-marks-${new Date().toISOString().slice(0, 10)}.json`);
@@ -4888,11 +4955,13 @@ function applyImportedMarks(data) {
     if (Array.isArray(src.stars?.[c])) for (const id of src.stars[c]) if (byId.has(id) && !state.marks.stars[c].has(id)) { state.marks.stars[c].add(id); count += 1; }
     if (Array.isArray(src.circles?.[c])) for (const id of src.circles[c]) if (byId.has(id) && !state.marks.circles[c].has(id)) { state.marks.circles[c].add(id); count += 1; }
   }
-  if (['off', 'include', 'exclude'].includes(src.starLogic)) state.starLogic = src.starLogic;
-  if (['off', 'include', 'exclude'].includes(src.circleLogic)) state.circleLogic = src.circleLogic;
   if (typeof src.starsLocked === 'boolean') state.starsLocked = src.starsLocked;
-  if (COLORS.includes(src.starView)) state.starView = src.starView;
-  if (COLORS.includes(src.circleView)) state.circleView = src.circleView;
+  if (typeof src.circlesLocked === 'boolean') state.circlesLocked = src.circlesLocked;
+  const colorSet = (values, legacy) => new Set(Array.isArray(values) ? values.filter(c => COLORS.includes(c)) : (COLORS.includes(legacy) ? [legacy] : []));
+  state.starIncludes = colorSet(src.starIncludes, src.starView);
+  state.starExcludes = colorSet(src.starExcludes, null);
+  state.circleIncludes = colorSet(src.circleIncludes, src.circleView);
+  state.circleExcludes = colorSet(src.circleExcludes, null);
   for (const c of COLORS) if (typeof src.circleExclusions?.[c] === 'boolean') state.circleExclusions[c] = src.circleExclusions[c];
   state.appliedCircleExclusions = { ...state.circleExclusions };
   for (const c of COLORS) state.appliedCircleMarks[c] = new Set(state.marks.circles[c]);
@@ -5208,9 +5277,9 @@ function snapshotFilters() {
     textures: [...state.textures], tones: [...state.tones], statuses: [...state.statuses],
     priorities: [...state.prioritiesFilter], tags: [...state.tagsFilter], qualities: [...state.qualities],
     facetExcludes: Object.fromEntries(Object.entries(state.facetExcludes).map(([key, set]) => [key, [...set]])),
-    collection: state.collectionView || '',
-    starView: state.starView || null, circleView: state.circleView || null,
-    starLogic: state.starLogic, circleLogic: state.circleLogic,
+    collectionIncludes: [...state.collectionIncludes], collectionExcludes: [...state.collectionExcludes],
+    starIncludes: [...state.starIncludes], starExcludes: [...state.starExcludes],
+    circleIncludes: [...state.circleIncludes], circleExcludes: [...state.circleExcludes],
     exclusions: COLORS.filter(c => state.appliedCircleExclusions[c]),
     sort: state.sort, view: state.view
   };
@@ -5236,13 +5305,18 @@ function applyFilters(snapshot) {
     const inc = facetSet(key);
     for (const value of state.facetExcludes[key]) inc.delete(value);
   }
-  state.collectionView = snapshot.collection && collectionById(snapshot.collection) ? snapshot.collection : null;
+  const collectionIncludes = Array.isArray(snapshot.collectionIncludes)
+    ? snapshot.collectionIncludes
+    : (snapshot.collection && collectionById(snapshot.collection) ? [snapshot.collection] : []);
+  state.collectionIncludes = new Set(collectionIncludes.filter(id => collectionById(id)));
+  state.collectionExcludes = new Set((Array.isArray(snapshot.collectionExcludes) ? snapshot.collectionExcludes : []).filter(id => collectionById(id)));
   if (snapshot.sort) state.sort = snapshot.sort;
   if (snapshot.view) state.view = snapshot.view;
-  state.starView = COLORS.includes(snapshot.starView) ? snapshot.starView : null;
-  state.circleView = COLORS.includes(snapshot.circleView) ? snapshot.circleView : null;
-  state.starLogic = ['include', 'exclude'].includes(snapshot.starLogic) ? snapshot.starLogic : 'off';
-  state.circleLogic = ['include', 'exclude'].includes(snapshot.circleLogic) ? snapshot.circleLogic : 'off';
+  const colorSet = (values, legacy) => new Set(Array.isArray(values) ? values.filter(c => COLORS.includes(c)) : (COLORS.includes(legacy) ? [legacy] : []));
+  state.starIncludes = colorSet(snapshot.starIncludes, snapshot.starView);
+  state.starExcludes = colorSet(snapshot.starExcludes, null);
+  state.circleIncludes = colorSet(snapshot.circleIncludes, snapshot.circleView);
+  state.circleExcludes = colorSet(snapshot.circleExcludes, null);
   const excluded = new Set(Array.isArray(snapshot.exclusions) ? snapshot.exclusions : COLORS.filter(c => snapshot.circleExclusions?.[c]));
   state.circleExclusions = Object.fromEntries(COLORS.map(c => [c, excluded.has(c)]));
   state.appliedCircleExclusions = { ...state.circleExclusions };
@@ -5254,7 +5328,7 @@ function saveCurrentView() {
   const name = prompt('Name this smart view:', 'My audition view');
   if (!name || !name.trim()) return;
   pushHistory('saved view');
-  state.savedViews.push({ id: 'view_' + Date.now().toString(36), name: name.trim().slice(0, 60), filters: snapshotFilters() });
+  state.savedViews.push({ id: 'view_' + Date.now().toString(36), name: name.trim().slice(0, 100), filters: snapshotFilters() });
   persist();
   render();
   showToast('Smart view saved.', 'success');
@@ -5290,6 +5364,23 @@ function deleteView(id) {
   render();
   showToast('Saved view deleted.', 'info');
 }
+function deleteBuiltinView(id) {
+  if (!BUILTIN_VIEWS.some(v => v.id === id)) return;
+  if (state.hiddenBuiltinViews.includes(id)) return;
+  pushHistory('default view deletion');
+  state.hiddenBuiltinViews.push(id);
+  persist();
+  render();
+  showToast('Default view removed. Use Reset to restore it.', 'info');
+}
+function resetBuiltinViews() {
+  if (!state.hiddenBuiltinViews.length) { showToast('All default views are already visible.', 'info'); return; }
+  pushHistory('default views reset');
+  state.hiddenBuiltinViews = [];
+  persist();
+  render();
+  showToast('Default views restored.', 'success');
+}
 function toggleFacet(facet, value) {
   const set = facetSet(facet);
   if (!set) return;
@@ -5305,6 +5396,7 @@ function toggleFacet(facet, value) {
     set.add(value);
   }
   state.visibleCount = pageSize();
+  persist();
   render();
   writeUrlState();
 }
@@ -5318,16 +5410,17 @@ function toggleFacetInclude(facet, value) {
     facetExcludeSet(facet).delete(value);
   }
   state.visibleCount = pageSize();
+  persist();
   render();
   writeUrlState();
 }
-function clearOne(clear, facet, value) {
+function clearOne(clear, facet, value, collection) {
   if (clear === 'search') { state.search = ''; if ($('search')) $('search').value = ''; if ($('mobileSearch')) $('mobileSearch').value = ''; }
-  else if (clear === 'starView') state.starView = null;
-  else if (clear === 'circleView') state.circleView = null;
-  else if (clear === 'collection') state.collectionView = null;
-  else if (clear === 'starLogic') state.starLogic = 'off';
-  else if (clear === 'circleLogic') state.circleLogic = 'off';
+  else if (clear === 'star') { state.starIncludes.delete(value); state.starExcludes.delete(value); }
+  else if (clear === 'circle') { state.circleIncludes.delete(value); state.circleExcludes.delete(value); }
+  else if (clear === 'collection') {
+    if (collection) { state.collectionIncludes.delete(collection); state.collectionExcludes.delete(collection); }
+  }
   else if (clear === 'exclusions') {
     state.circleExclusions = emptyExclusions();
     state.appliedCircleExclusions = emptyExclusions();
@@ -5348,9 +5441,9 @@ function clearAll() {
   state.textures.clear(); state.tones.clear(); state.statuses.clear();
   state.prioritiesFilter.clear(); state.tagsFilter.clear(); state.qualities.clear();
   for (const set of Object.values(state.facetExcludes)) set.clear();
-  state.collectionView = null;
-  state.starView = null; state.circleView = null;
-  state.starLogic = 'off'; state.circleLogic = 'off';
+  state.collectionIncludes.clear(); state.collectionExcludes.clear();
+  state.starIncludes.clear(); state.starExcludes.clear();
+  state.circleIncludes.clear(); state.circleExcludes.clear();
   state.circleExclusions = emptyExclusions();
   state.appliedCircleExclusions = emptyExclusions();
   for (const c of COLORS) state.appliedCircleMarks[c] = new Set();
@@ -5420,6 +5513,7 @@ function setupInfiniteLoader() {
 }
 function toggleMark(id, kind, color) {
   if (kind === 'stars' && state.starsLocked) { showToast('Stars are locked. Unlock them in the marks panel.', 'warn'); return; }
+  if (kind === 'circles' && state.circlesLocked) { showToast('Circles are locked. Unlock them in the marks panel.', 'warn'); return; }
   const set = state.marks[kind]?.[color];
   if (!set) return;
   pushHistory(kind === 'stars' ? 'star' : 'circle');
@@ -5431,9 +5525,18 @@ function toggleMark(id, kind, color) {
   const v = byId.get(id);
   addActivity(`${set.has(id) ? 'Added' : 'Removed'} ${color} ${kind === 'stars' ? 'star' : 'circle'} ${set.has(id) ? 'to' : 'from'} ${v?.name || 'voice'}`, kind === 'stars' ? '★' : '●');
 }
-function setMarkView(kind, color) {
-  if (kind === 'stars') state.starView = state.starView === color ? null : color;
-  else state.circleView = state.circleView === color ? null : color;
+function cycleMarkView(kind, color) {
+  const inc = kind === 'stars' ? state.starIncludes : state.circleIncludes;
+  const exc = kind === 'stars' ? state.starExcludes : state.circleExcludes;
+  if (inc.has(color)) {
+    inc.delete(color);
+    exc.add(color);
+  } else if (exc.has(color)) {
+    exc.delete(color);
+  } else {
+    exc.delete(color);
+    inc.add(color);
+  }
   state.visibleCount = pageSize();
   persist();
   render();
@@ -5481,15 +5584,19 @@ function readUrlState() {
   const p = new URLSearchParams(raw);
   if (![...p.keys()].length) return false;
   const getSet = key => (p.get(key) || '').split('|').filter(Boolean);
+  const setOr = (key, legacy) => {
+    const values = getSet(key);
+    return values.length ? values : (legacy ? [legacy] : []);
+  };
   applyFilters({
     search: p.get('q') || '',
     manifests: getSet('m'), genders: getSet('g'), ages: getSet('a'),
     textures: getSet('tex'), tones: getSet('tone'), statuses: getSet('st'),
     priorities: getSet('pr'), tags: getSet('myt'), qualities: getSet('ql'),
     facetExcludes: Object.fromEntries(Object.entries({ manifest: 'xm', gender: 'xg', age: 'xa', texture: 'xtex', tone: 'xtone', status: 'xst', priority: 'xpr', tag: 'xmyt', quality: 'xql' }).map(([key, param]) => [key, getSet(param)])),
-    collection: p.get('col') || '',
-    starView: p.get('sv') || null, circleView: p.get('cv') || null,
-    starLogic: p.get('sl') || 'off', circleLogic: p.get('cl') || 'off',
+    collectionIncludes: getSet('col'), collectionExcludes: getSet('colx'),
+    starIncludes: setOr('si', p.get('sv')), starExcludes: getSet('sx'),
+    circleIncludes: setOr('ci', p.get('cv')), circleExcludes: getSet('cx'),
     exclusions: getSet('xe').filter(c => COLORS.includes(c)),
     sort: p.get('sort') || 'name', view: p.get('view') === 'table' ? 'table' : 'cards'
   });
@@ -5513,11 +5620,12 @@ function writeUrlState() {
     const values = [...state.facetExcludes[key]];
     if (values.length) p.set(param, values.join('|'));
   }
-  if (state.collectionView) p.set('col', state.collectionView);
-  if (state.starView) p.set('sv', state.starView);
-  if (state.circleView) p.set('cv', state.circleView);
-  if (state.starLogic !== 'off') p.set('sl', state.starLogic);
-  if (state.circleLogic !== 'off') p.set('cl', state.circleLogic);
+  if (state.collectionIncludes.size) p.set('col', [...state.collectionIncludes].join('|'));
+  if (state.collectionExcludes.size) p.set('colx', [...state.collectionExcludes].join('|'));
+  if (state.starIncludes.size) p.set('si', [...state.starIncludes].join('|'));
+  if (state.starExcludes.size) p.set('sx', [...state.starExcludes].join('|'));
+  if (state.circleIncludes.size) p.set('ci', [...state.circleIncludes].join('|'));
+  if (state.circleExcludes.size) p.set('cx', [...state.circleExcludes].join('|'));
   const exclusions = COLORS.filter(c => state.appliedCircleExclusions[c]);
   if (exclusions.length) p.set('xe', exclusions.join('|'));
   if (state.workspace !== 'library') p.set('ws', state.workspace);
@@ -5542,7 +5650,7 @@ function handleAction(el) {
       break;
     }
     case 'clear-one':
-      clearOne(el.dataset.clear, el.dataset.facet, el.dataset.value);
+      clearOne(el.dataset.clear, el.dataset.facet, el.dataset.value, el.dataset.collection);
       break;
     case 'clear-all':
       clearAll();
@@ -5559,7 +5667,7 @@ function handleAction(el) {
       toggleMark(el.dataset.id, el.dataset.kind, el.dataset.color);
       break;
     case 'mark-view':
-      setMarkView(el.dataset.kind, el.dataset.color);
+      cycleMarkView(el.dataset.kind, el.dataset.color);
       break;
     case 'refresh-exclusions':
       refreshExclusions();
@@ -5578,6 +5686,12 @@ function handleAction(el) {
       break;
     case 'delete-view':
       deleteView(el.dataset.viewId);
+      break;
+    case 'delete-builtin-view':
+      deleteBuiltinView(el.dataset.viewId);
+      break;
+    case 'reset-builtin-views':
+      resetBuiltinViews();
       break;
     case 'save-view':
       saveCurrentView();
@@ -5816,7 +5930,7 @@ function handleAction(el) {
       addToCollection(el.dataset.collection, el.dataset.id || null, el.dataset.bulk === '1');
       break;
     case 'set-collection':
-      setCollectionView(el.dataset.collection);
+      toggleCollection(el.dataset.collection);
       break;
     case 'delete-collection':
       deleteCollection(el.dataset.collection);
@@ -5854,13 +5968,17 @@ function handleAction(el) {
     }
     case 'apply-quality':
       if (el.dataset.value) {
-        state.qualities = new Set([el.dataset.value]);
-        state.facetExcludes.quality.clear();
         state.workspace = 'library';
-        state.visibleCount = pageSize();
-        render(); writeUrlState();
+        toggleFacet('quality', el.dataset.value);
       }
       break;
+    case 'delete-recent-search': {
+      const value = el.dataset.value;
+      state.recentSearches = state.recentSearches.filter(q => q !== value);
+      persist();
+      renderRecentSearches();
+      break;
+    }
     case 'apply-search':
       if (el.dataset.value !== undefined) {
         state.search = el.dataset.value;
@@ -6031,17 +6149,14 @@ function handleAction(el) {
 function handleChange(e) {
   const target = e.target;
   if (!(target instanceof Element)) return;
-  if (target.matches('[data-select]')) {
-    const key = target.dataset.select;
-    if (key === 'starLogic' || key === 'circleLogic') {
-      state[key] = target.value;
-      persist();
-      render();
-      writeUrlState();
-    }
-  } else if (target.matches('[data-check]')) {
+  if (target.matches('[data-check]')) {
     if (target.dataset.check === 'starsLocked') {
       state.starsLocked = target.checked;
+      persist();
+      renderMarksPanel();
+      renderResults();
+    } else if (target.dataset.check === 'circlesLocked') {
+      state.circlesLocked = target.checked;
       persist();
       renderMarksPanel();
       renderResults();
