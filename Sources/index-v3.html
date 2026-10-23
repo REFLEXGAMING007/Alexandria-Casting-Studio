@@ -2060,7 +2060,7 @@ const FACETS = [
   { key: 'tone', label: 'Tone / delivery', order: null, limit: 14 },
   { key: 'status', label: 'Review status', order: STATUS_ORDER },
   { key: 'priority', label: 'Priority', order: PRIORITIES },
-  { key: 'tag', label: 'My tags', order: null, limit: 10 },
+  { key: 'tag', label: 'My tags', order: null, limit: 30 },
   { key: 'quality', label: 'Data quality', order: QUALITY_ORDER }
 ];
 
@@ -2385,7 +2385,7 @@ function hydrate() {
     if (data.customTags && typeof data.customTags === 'object') {
       for (const [id, tags] of Object.entries(data.customTags)) {
         if (!byId.has(id) || !Array.isArray(tags)) continue;
-        const clean = [...new Set(tags.map(t => String(t).trim().slice(0, 100)).filter(Boolean))].slice(0, 20);
+        const clean = [...new Set(tags.map(t => String(t).trim().slice(0, 100)).filter(Boolean))].slice(0, 30);
         if (clean.length) state.customTags[id] = clean;
       }
     }
@@ -3123,7 +3123,7 @@ function cardHtml(v) {
   for (const age of (v.age || []).slice(0, 2)) tags.push(tagHtml('age', age, 'age'));
   for (const tex of (v.texture || []).slice(0, 3)) tags.push(tagHtml('texture', tex, 'texture'));
   for (const tone of (v.tone || []).slice(0, 5)) tags.push(tagHtml('tone', tone, 'tone'));
-  const shown = tags.slice(0, 20);
+  const shown = tags.slice(0, 50);
   const extra = tags.length - shown.length;
   const note = noteOf(v.id);
   const playing = currentId === v.id && isPlaying;
@@ -3841,7 +3841,7 @@ function addTagRaw(id, tag) {
   if (!clean) return false;
   const list = tagsOf(id);
   if (list.some(t => t.toLowerCase() === clean.toLowerCase())) return false;
-  state.customTags[id] = [...list, clean].slice(0, 20);
+  state.customTags[id] = [...list, clean].slice(0, 30);
   return true;
 }
 function cyclePriority(id) {
