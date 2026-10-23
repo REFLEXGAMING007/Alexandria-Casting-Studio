@@ -4638,7 +4638,29 @@ function openPeek(id) {
     </div>
   </div>`;
   openModal('peek', 'Quick peek', 'Profile, marks, collections, and audio waveform', body);
-  setTimeout(() => { loadWaveform(v.filename, 'peek'); ensureWaveform(v.filename).then(() => { const c = $('peekWave'); if (c) drawWaveCanvas(c, waveCache.get(v.filename), currentId === id && audio.duration ? audio.currentTime / audio.duration : 0); }); }, 60);
+  setTimeout(() => {
+    loadWaveform(v.filename, 'peek');
+    ensureWaveform(v.filename).then(() => { const c = $('peekWave'); if (c) drawWaveCanvas(c, waveCache.get(v.filename), currentId === id && audio.duration ? audio.currentTime / audio.duration : 0); });
+    const c = $('peekWave');
+    if (c) {
+      const scrub = (e) => {
+        if (currentId !== id) { playVoice(id); return; }
+        if (!Number.isFinite(audio.duration) || !audio.duration) return;
+        const rect = c.getBoundingClientRect();
+        const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+        audio.currentTime = ratio * audio.duration;
+        drawWaveCanvas(c, waveCache.get(v.filename), ratio);
+      };
+      c.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        scrub(e);
+        const onMove = (ev) => scrub(ev);
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    }
+  }, 60);
 }
 function refreshPeekState(id) {
   if (modalKind !== 'peek') return;
