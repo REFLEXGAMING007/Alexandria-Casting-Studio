@@ -196,6 +196,8 @@ a{color:inherit}
 .facet-head .f-name{font-size:9px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
 .facet-head .f-count{font-size:8px;color:var(--dim);margin-left:auto}
 .facet-head .chev{font-size:9px;color:var(--dim);width:12px;text-align:center}
+.facet-grip{font-size:9px;line-height:1;color:var(--dim);opacity:.45;letter-spacing:-2px;flex:0 0 auto;padding:0 1px;cursor:grab;user-select:none}
+.facet-block:hover .facet-grip{opacity:1;color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:4px;padding:5px 0 2px}
 .chip{
   display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border-radius:6px;border:1px solid transparent;
@@ -2737,11 +2739,12 @@ function renderFacets() {
     const more = facet.limit && !state.facetExpanded[facet.key] && shown > facet.limit;
     const meta = [active.size ? active.size + ' active' : '', excluded.size ? excluded.size + ' excluded' : ''].filter(Boolean).join(' · ');
     const html = `
-      <div class="facet-head" draggable="true" data-action="toggle-collapse" data-collapse="${facet.key}">
+      <div class="facet-head" data-action="toggle-collapse" data-collapse="${facet.key}">
         <span class="f-name">${esc(facet.label)}</span>
         <span class="f-count">${meta}</span>
         <span class="chev">${collapsed ? '▸' : '▾'}</span>
-      </div>
+      
+        <span class="facet-grip" draggable="true" data-action="facet-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span></div>
       <div class="chips" ${collapsed ? 'hidden' : ''}>
         ${values.length ? values.map(value => {
           const isIn = active.has(value);
@@ -5659,6 +5662,8 @@ function handleAction(el) {
       state.collapsed[el.dataset.collapse] = !state.collapsed[el.dataset.collapse];
       renderFacets();
       break;
+    case 'facet-grip':
+      break;
     case 'expand-facet':
       state.facetExpanded[el.dataset.facet] = !state.facetExpanded[el.dataset.facet];
       renderFacets();
@@ -6427,8 +6432,8 @@ function bindEvents() {
     let facetDragKey = null;
     facetsPanel.addEventListener('dragstart', e => {
       const block = e.target instanceof Element ? e.target.closest('.facet-block') : null;
-      const head = e.target instanceof Element ? e.target.closest('.facet-head') : null;
-      if (!block || !head) return;
+      const grip = e.target instanceof Element ? e.target.closest('.facet-grip') : null;
+      if (!block || !grip) return;
       if (e.target.closest('button')) return;
       facetDragKey = block.id.replace('facet-', '');
       if (e.dataTransfer) {
