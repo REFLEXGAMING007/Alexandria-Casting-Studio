@@ -3108,11 +3108,11 @@ function actionButtonsHtml(v, compact) {
   return `${compact ? `<button class="mini-btn" data-action="play" data-id="${esc(v.id)}" title="Preview" aria-label="Preview">${currentId === v.id && isPlaying ? '❚❚' : '▶'}</button>` : ''}<button class="mini-btn ${inCompare ? 'active' : ''}" data-action="compare" data-id="${esc(v.id)}" title="Add to comparison" aria-label="Compare">⇄</button>
     <button class="mini-btn ${inQueue ? 'active' : ''}" data-action="queue" data-id="${esc(v.id)}" title="Add to audition queue" aria-label="Queue">＋</button>
     <button class="mini-btn" data-action="similar" data-id="${esc(v.id)}" title="Find similar voices" aria-label="Similar">≈</button>
-    <button class="mini-btn" data-action="tag" data-id="${esc(v.id)}" title="Edit custom tags" aria-label="Tags">#</button>
-    <button class="mini-btn" data-action="collection" data-id="${esc(v.id)}" title="Add to collection" aria-label="Collection">▣</button>
-    ${duplicateIds.has(v.id) ? `<button class="mini-btn" data-action="variants" data-id="${esc(v.id)}" title="Cross-book variants" aria-label="Variants">⧉</button>` : ''}
     <button class="mini-btn" data-action="peek" data-id="${esc(v.id)}" title="Open quick peek" aria-label="Quick peek">⌕</button>
     <button class="mini-btn ${note ? 'has-note' : ''}" data-action="note" data-id="${esc(v.id)}" title="${note ? 'Edit note' : 'Add note'}" aria-label="Note">✎</button>
+    <button class="mini-btn" data-action="collection" data-id="${esc(v.id)}" title="Add to collection" aria-label="Collection">▣</button>
+    ${duplicateIds.has(v.id) ? `<button class="mini-btn" data-action="variants" data-id="${esc(v.id)}" title="Cross-book variants" aria-label="Variants">⧉</button>` : ''}
+    <button class="mini-btn" data-action="tag" data-id="${esc(v.id)}" title="Edit custom tags" aria-label="Tags">#</button>
     ${compact ? '' : statusSelectHtml(v.id)}
     <button class="mini-btn" data-action="download-one" data-id="${esc(v.id)}" title="Download preview audio" aria-label="Download audio">↓</button>`;
 }
