@@ -713,6 +713,8 @@ html[data-accent="lime"]{--accent:#bef264;--accent-2:#5eead4}
 .priority-pill.low{color:var(--blue);background:rgba(96,165,250,.09);border-color:rgba(96,165,250,.22)}
 .priority-pill.unset{color:var(--dim);background:rgba(148,163,184,.05);border-color:var(--line)}
 .tag.custom{color:var(--accent-2);border-color:rgba(167,139,250,.22);background:rgba(167,139,250,.07)}
+.tag-pill{display:inline-flex;align-items:center;gap:4px}
+.tag-color-swatch{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;flex:0 0 auto}
 .tag.quality{color:var(--danger);border-color:rgba(251,113,133,.18);background:rgba(251,113,133,.05)}
 .priority-select{padding:3px 4px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--muted);font-size:8px;outline:none}
 .tag-editor{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
@@ -2143,6 +2145,7 @@ const state = {
   notes: {},
   priorities: {},
   customTags: {},
+  customTagColors: {},
   collections: [],
   queue: [],
   compare: [],
@@ -2251,13 +2254,10 @@ function anyMark(id) { return COLORS.some(c => hasMark('stars', c, id) || hasMar
 function markCountFor(kind, color) { return state.marks[kind]?.[color]?.size || 0; }
 function markCount(id) { return COLORS.reduce((n, c) => n + (hasMark('stars', c, id) ? 1 : 0) + (hasMark('circles', c, id) ? 1 : 0), 0); }
 function sourceColor(tag) { return SOURCE_COLORS[tag] || SOURCE_COLORS.unknown; }
-const customTagColorMap = new Map();
+const CUSTOM_TAG_PALETTE = ['#a78bfa', '#5eead4', '#fcd34d', '#f9a8d4', '#93c5fd', '#bef264', '#f87171', '#34d399', '#fb923c', '#60a5fa', '#c084fc', '#2dd4bf'];
 function colorForCustomTag(tag) {
-  if (customTagColorMap.has(tag)) return customTagColorMap.get(tag);
-  const used = new Set(customTagColorMap.values());
-  const color = MANIFEST_COLOR_PALETTE.find(c => !used.has(c)) || MANIFEST_COLOR_PALETTE[customTagColorMap.size % MANIFEST_COLOR_PALETTE.length];
-  customTagColorMap.set(tag, color);
-  return color;
+  const t = String(tag || '').toLowerCase();
+  return state.customTagColors?.[t] || '#a78bfa';
 }
 function facetSet(key) {
   if (key === 'manifest') return state.manifests;
@@ -2326,6 +2326,7 @@ function serialize() {
     notes: { ...state.notes },
     priorities: { ...state.priorities },
     customTags: Object.fromEntries(Object.entries(state.customTags).map(([id, tags]) => [id, [...tags]])),
+    customTagColors: { ...state.customTagColors },
     collections: state.collections.map(c => ({ ...c, ids: [...c.ids] })),
     activity: state.activity.slice(0, 100),
     recent: [...state.recent],
@@ -2387,6 +2388,11 @@ function hydrate() {
         if (!byId.has(id) || !Array.isArray(tags)) continue;
         const clean = [...new Set(tags.map(t => String(t).trim().slice(0, 100)).filter(Boolean))].slice(0, 30);
         if (clean.length) state.customTags[id] = clean;
+      }
+    }
+    if (data.customTagColors && typeof data.customTagColors === 'object') {
+      for (const [tag, color] of Object.entries(data.customTagColors)) {
+        if (typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)) state.customTagColors[String(tag).toLowerCase()] = color;
       }
     }
     if (Array.isArray(data.collections)) {
@@ -3074,7 +3080,13 @@ function renderInsightsStrip() {
 
 function tagHtml(facet, value, cls) {
   const title = state.blind && cls === 'custom' ? '' : ` title="Filter by ${esc(value)}"`;
-  return `<button class="tag ${cls || facet}" data-action="filter-tag" data-facet="${facet}" data-value="${esc(value)}"${title}>${esc(value)}</button>`;
+  const isCustom = cls === 'custom' || facet === 'tag';
+  let style = '';
+  if (isCustom) {
+    const c = colorForCustomTag(value);
+    style = ` style="color:${c};border-color:${c}40;background:${c}14"`;
+  }
+  return `<button class="tag ${cls || facet}" data-action="filter-tag" data-facet="${facet}" data-value="${esc(value)}"${title}${style}>${esc(value)}</button>`;
 }
 function markButtonsHtml(v) {
   const stars = COLORS.map(c => {
@@ -3589,6 +3601,7 @@ function coreSnapshot() {
     statuses: { ...state.statusesById }, notes: { ...state.notes },
     priorities: { ...state.priorities },
     customTags: Object.fromEntries(Object.entries(state.customTags).map(([id, tags]) => [id, [...tags]])),
+    customTagColors: { ...state.customTagColors },
     collections: state.collections.map(c => ({ ...c, ids: [...c.ids] })),
     queue: [...state.queue], savedViews: state.savedViews.map(v => ({ ...v, filters: { ...(v.filters || {}) } })), hiddenBuiltinViews: [...state.hiddenBuiltinViews], smartViewOrder: [...state.smartViewOrder], activity: state.activity.slice(0, 100), recent: [...state.recent]
   };
@@ -3621,6 +3634,7 @@ function restoreCore(data) {
     state.notes = { ...(data.notes || {}) };
     state.priorities = { ...(data.priorities || {}) };
     state.customTags = { ...(data.customTags || {}) };
+    state.customTagColors = { ...(data.customTagColors || {}) };
     state.collections = (data.collections || []).map(c => ({ ...c, ids: [...(c.ids || [])] }));
     state.queue = [...(data.queue || [])];
     state.savedViews = data.savedViews || [];
@@ -3870,7 +3884,7 @@ function openTagEditor(id) {
   const tags = tagsOf(id);
   const suggestions = uniq(Object.values(state.customTags).flat()).filter(t => !tags.includes(t)).slice(0, 8);
   const body = `<p><b style="color:var(--text)">${esc(state.blind ? 'Hidden voice' : v.name)}</b> · private labels for casting, dialect, or callback tracking.</p>
-    <div class="tag-editor" id="tagEditorList">${tags.length ? tags.map(t => `<span class="tag-pill">#${esc(t)}<button data-action="remove-tag" data-id="${esc(id)}" data-tag="${esc(t)}" title="Remove tag">×</button></span>`).join('') : '<span style="font-size:9px;color:var(--dim)">No custom tags yet.</span>'}</div>
+    <div class="tag-editor" id="tagEditorList">${tags.length ? tags.map(t => `<span class="tag-pill"><button class="tag-color-swatch" data-action="cycle-tag-color" data-id="${esc(id)}" data-tag="${esc(t)}" style="background:${colorForCustomTag(t)}" title="Change color" aria-label="Change color for ${esc(t)}"></button>#${esc(t)}<button data-action="remove-tag" data-id="${esc(id)}" data-tag="${esc(t)}" title="Remove tag">×</button></span>`).join('') : '<span style="font-size:9px;color:var(--dim)">No custom tags yet.</span>'}</div>
     <div class="tag-input-row"><input id="tagInput" maxlength="100" placeholder="e.g. lead, villain, warm, callback"><button class="btn primary" data-action="add-tag" data-id="${esc(id)}">Add tag</button></div>
     ${suggestions.length ? `<div class="tag-suggestions">${suggestions.map(t => `<button data-action="add-tag" data-id="${esc(id)}" data-tag="${esc(t)}">#${esc(t)}</button>`).join('')}</div>` : ''}`;
   openModal('tags', 'Voice tags', 'Local, private, and searchable with tag:', body, { compact: true });
@@ -4489,7 +4503,7 @@ function eraseStudioData() {
   state.appliedCircleExclusions = emptyExclusions();
   state.starIncludes.clear(); state.starExcludes.clear();
   state.circleIncludes.clear(); state.circleExcludes.clear();
-  state.statusesById = {}; state.notes = {}; state.priorities = {}; state.customTags = {};
+  state.statusesById = {}; state.notes = {}; state.priorities = {}; state.customTags = {}; state.customTagColors = {};
   state.collections = []; state.queue = []; state.compare = []; state.savedViews = []; state.hiddenBuiltinViews = []; state.smartViewOrder = [];
   state.activity = []; state.recent = []; state.recentSearches = [];
   state.workspace = 'library'; state.mapMode = 'manifest';
@@ -5951,6 +5965,21 @@ function handleAction(el) {
     case 'remove-tag':
       if (id && el.dataset.tag) removeTag(id, el.dataset.tag);
       break;
+    case 'cycle-tag-color': {
+      const tag = el.dataset.tag;
+      if (tag) {
+        const palette = CUSTOM_TAG_PALETTE;
+        const cur = colorForCustomTag(tag);
+        const idx = palette.indexOf(cur);
+        const next = palette[(idx + 1) % palette.length];
+        state.customTagColors[String(tag).toLowerCase()] = next;
+        persist();
+        render();
+        if (id) openTagEditor(id);
+        if (state.reviewOpen) renderReview();
+      }
+      break;
+    }
     case 'collection':
       if (id) openCollectionPicker(id, false);
       break;
